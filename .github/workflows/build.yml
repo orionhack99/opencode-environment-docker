@@ -1,0 +1,41 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build da imagem
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build da imagem
+        run: docker build -t opencode-sandbox:ci .
+
+      - name: Smoke test
+        run: |
+          set -euo pipefail
+          docker run --rm opencode-sandbox:ci bash -lc '
+            command -v opencode >/dev/null || { echo "opencode nao encontrado"; exit 1; }
+            command -v herdr    >/dev/null || { echo "herdr nao encontrado"; exit 1; }
+            opencode --version
+            herdr --version
+            test -f /root/.config/herdr/config.toml || { echo "config do herdr ausente"; exit 1; }
+          '
+
+      - name: Herdr sobe como servidor headless
+        run: |
+          set -euo pipefail
+          docker run --rm -d --name herdr-ci opencode-sandbox:ci herdr server
+          sleep 5
+          docker exec herdr-ci herdr status server
+          docker rm -f herdr-ci

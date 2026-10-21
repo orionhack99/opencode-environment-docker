@@ -1,0 +1,36 @@
+# Secrets e credenciais
+.env
+.env.*
+*.pem
+*.key
+*_rsa
+*_ed25519
+
+# Dados locais de configuração do opencode / herdr
+# (no Compose esses caminhos são volumes nomeados; ignorados aqui caso
+#  alguém rode o binário direto na host)
+.opencode/
+.herdr/
+opencode.json
+auth.json
+
+# Resultados de pentest / artefatos
+*.log
+nmap*.xml
+*.pcap
+*.pcapng
+loot/
+reports/
+exploits/
+
+# Editores e SO
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

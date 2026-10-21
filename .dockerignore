@@ -1,0 +1,22 @@
+# Contexto de build: só o que é realmente necessário para a imagem.
+.git
+.gitignore
+.github
+LICENSE
+README.md
+
+# Configuração local do Compose (pode conter segredos)
+.env
+.env.*
+docker-compose.override.yml
+
+# Artefatos / dados de trabalho
+**/node_modules
+**/.venv
+**/__pycache__
+**/*.log
+**/.DS_Store
+
+# Estado local do opencode/herdr (usa volumes nomeados, não o bind mount)
+.opencode
+.herdr

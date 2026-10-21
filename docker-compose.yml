@@ -1,0 +1,66 @@
+# ---------------------------------------------------------------------------
+# Sandbox Docker: OpenCode + Herdr sobre Kali Linux
+#
+# Uso:
+#   docker compose run --rm sandbox            # shell interativo
+#   docker compose run --rm sandbox opencode   # abre o agente de IA
+#   docker compose run --rm sandbox herdr      # abre o painel do Herdr
+#   docker compose up -d sandbox               # container em background
+#   docker compose down -v                     # remove container e volumes
+# ---------------------------------------------------------------------------
+name: opencode-sandbox
+
+services:
+  sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Fixe uma versão (ex.: 1.2.3) para builds reprodutíveis. Vazio = latest.
+        OPENCODE_VERSION: "${OPENCODE_VERSION:-}"
+    image: opencode-sandbox:latest
+
+    # tini como PID 1: reaping de processos e repasse de SIGTERM/SIGINT,
+    # essencial porque o herdr abre subprocessos (agentes, shells, shells de pentest).
+    init: true
+
+    # Terminal interativo (o herdr e o opencode são TUIs).
+    stdin_open: true
+    tty: true
+
+    working_dir: /workspace
+
+    environment:
+      TERM: xterm-256color
+      COLORTERM: truecolor
+      LANG: C.UTF-8
+      # Container não tem placa de som.
+      HERDR_DISABLE_SOUND: "1"
+
+    volumes:
+      # O projeto atual dentro do container. É aqui que o agente trabalha.
+      - .:/workspace
+
+      # Persistência entre recriações do container (volumes nomeados):
+      #   opencode-config → /root/.config/opencode      (config do opencode)
+      #   opencode-data   → /root/.local/share/opencode (auth.json, db, sessões, logs)
+      #   opencode-state  → /root/.local/state/opencode  (registro do serviço)
+      #   herdr-config    → /root/.config/herdr         (config do herdr)
+      #   herdr-state     → /root/.herdr                (worktrees, sessão, estado)
+      - opencode-config:/root/.config/opencode
+      - opencode-data:/root/.local/share/opencode
+      - opencode-state:/root/.local/state/opencode
+      - herdr-config:/root/.config/herdr
+      - herdr-state:/root/.herdr
+
+    command: ["/bin/bash"]
+
+    # Dá tempo de o herdr fechar os agentes antes do SIGKILL.
+    stop_grace_period: 15s
+
+volumes:
+  opencode-config:
+  opencode-data:
+  opencode-state:
+  herdr-config:
+  herdr-state:
