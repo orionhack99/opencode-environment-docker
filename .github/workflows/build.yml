@@ -11,31 +11,84 @@ permissions:
 
 jobs:
   build:
-    name: Build da imagem
+    name: Build + smoke test do sandbox
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build da imagem
-        run: docker build -t opencode-sandbox:ci .
+      - name: Valida o docker-compose.yml
+        run: docker compose config -q
 
-      - name: Smoke test
+      - name: Build da imagem
+        run: docker compose build
+
+      - name: Smoke test (binarios, config e integracao)
         run: |
           set -euo pipefail
-          docker run --rm opencode-sandbox:ci bash -lc '
-            command -v opencode >/dev/null || { echo "opencode nao encontrado"; exit 1; }
-            command -v herdr    >/dev/null || { echo "herdr nao encontrado"; exit 1; }
+          docker compose run --rm --no-deps sandbox bash -lc '
+            set -e
+            command -v opencode >/dev/null || { echo "::error::opencode nao encontrado no PATH"; exit 1; }
+            command -v herdr    >/dev/null || { echo "::error::herdr nao encontrado no PATH"; exit 1; }
             opencode --version
             herdr --version
-            test -f /root/.config/herdr/config.toml || { echo "config do herdr ausente"; exit 1; }
+            test -f /root/.config/herdr/config.toml \
+              || { echo "::error::config.toml do herdr ausente"; exit 1; }
+            test -f /root/.config/opencode/plugins/herdr-agent-state.js \
+              || { echo "::error::plugin herdr-agent-state do opencode ausente"; exit 1; }
+            opencode debug paths
+          '
+
+      - name: Testes de seguranca do sandbox
+        run: |
+          set -euo pipefail
+          docker compose run --rm --no-deps sandbox bash -lc '
+            set -e
+            echo "--- no-new-privileges ---"
+            grep -q "NoNewPrivs:[[:space:]]*1" /proc/self/status \
+              || { echo "::error::no-new-privileges inativo"; exit 1; }
+            grep "NoNewPrivs" /proc/self/status
+
+            echo "--- capabilities ---"
+            grep -q "CapEff:[[:space:]]*00000000000025eb" /proc/self/status \
+              || { echo "::error::conjunto de capabilities inesperado"; exit 1; }
+            grep "CapEff" /proc/self/status
+
+            echo "--- rootfs somente-leitura ---"
+            if touch /etc/.ci-write-test 2>/dev/null; then
+              echo "::error::rootfs do container esta gravavel (esperado somente-leitura)"
+              exit 1
+            fi
+            echo "rootfs somente-leitura: OK"
+
+            echo "--- tmpfs e volumes gravaveis ---"
+            touch /tmp/.ci-write-test && rm -f /tmp/.ci-write-test
+            touch /root/.config/herdr/.ci-write-test && rm -f /root/.config/herdr/.ci-write-test
+            echo "tmpfs e volumes: OK"
+
+            echo "--- limites de recurso ---"
+            pids=$(cat /sys/fs/cgroup/pids.max)
+            mem=$(cat /sys/fs/cgroup/memory.max)
+            echo "pids.max=$pids memory.max=$mem"
+            [ "$pids" = "512" ] || { echo "::error::pids_limit esperado 512, obtido $pids"; exit 1; }
+            [ "$mem" = "4294967296" ] || { echo "::error::mem_limit esperado 4g, obtido $mem"; exit 1; }
           '
 
       - name: Herdr sobe como servidor headless
         run: |
           set -euo pipefail
-          docker run --rm -d --name herdr-ci opencode-sandbox:ci herdr server
-          sleep 5
-          docker exec herdr-ci herdr status server
-          docker rm -f herdr-ci
+          docker compose run --rm --no-deps -d --name herdr-ci sandbox herdr server
+          trap 'docker rm -f herdr-ci >/dev/null 2>&1 || true' EXIT
+          for i in $(seq 1 15); do
+            if docker compose run --rm --no-deps sandbox herdr status server >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker compose run --rm --no-deps sandbox herdr status server
+          docker compose run --rm --no-deps sandbox herdr agent list || true
+
+      - name: Limpeza
+        if: always()
+        run: docker compose down -v --remove-orphans

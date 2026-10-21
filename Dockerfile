@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # ---------------------------------------------------------------------------
-# Imagem base: Kali Linux rolling
+# Sandbox OpenCode + Herdr sobre Kali Linux.
 #
-# Esta imagem base é enxuta e NÃO traz ferramentas de pentest pré-instaladas.
-# O objetivo aqui é apenas o runtime do OpenCode + Herdr sobre um sistema
-# com o repositório Kali configurado, para você instalar o que precisar.
+# A imagem base do Kali é enxuta e NÃO traz ferramentas de pentest prontas:
+# aqui entra apenas o runtime do OpenCode + Herdr. Instale as ferramentas que
+# precisar direto no container (apt) ou estenda a imagem (veja o README).
 # ---------------------------------------------------------------------------
 FROM kalilinux/kali-rolling:latest
 
@@ -25,10 +25,6 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # ---------------------------------------------------------------------------
 # Dependências básicas
-#
-# A imagem do Kali já é enxuta: NÃO traz ferramentas de pentest prontas.
-# Aqui entram apenas o runtime mínimo para o OpenCode e o Herdr funcionarem.
-# Para instalar ferramentas (nmap, sqlmap, ...), veja o README.
 # ---------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -40,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
-# Herdr — instalador oficial (valida SHA-256 do binário antes de instalar)
+# Herdr — instalador oficial (valida o SHA-256 do binário antes de instalar)
 # https://herdr.dev/docs/install/
 # ---------------------------------------------------------------------------
 RUN curl -fsSL --retry 3 --connect-timeout 10 https://herdr.dev/install.sh | sh \
@@ -98,17 +94,11 @@ EOF
 # Integração oficial Herdr <-> OpenCode (estado do agente + restauração de sessão)
 # https://herdr.dev/docs/integrations/
 # ---------------------------------------------------------------------------
-RUN herdr integration install opencode || echo "AVISO: integração do opencode não instalada"
+RUN herdr integration install opencode
 
 # ---------------------------------------------------------------------------
 # Workspace
 # ---------------------------------------------------------------------------
 WORKDIR /workspace
 
-COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh
-
-# Sinais: o herdr abre subprocessos; `init: true` no compose já cuida do reaping,
-# mas o exec no entrypoint garante que o processo principal receba o SIGTERM.
-ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["/bin/bash"]

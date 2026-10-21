@@ -42,7 +42,7 @@ services:
       - .:/workspace
 
       # Persistência entre recriações do container (volumes nomeados):
-      #   opencode-config → /root/.config/opencode      (config do opencode)
+      #   opencode-config → /root/.config/opencode     (config do opencode)
       #   opencode-data   → /root/.local/share/opencode (auth.json, db, sessões, logs)
       #   opencode-state  → /root/.local/state/opencode  (registro do serviço)
       #   herdr-config    → /root/.config/herdr         (config do herdr)
@@ -52,6 +52,44 @@ services:
       - opencode-state:/root/.local/state/opencode
       - herdr-config:/root/.config/herdr
       - herdr-state:/root/.herdr
+
+    # =========================================================================
+    # ISOLAMENTO DO SANDBOX
+    #
+    # O container roda como root (as ferramentas de pentest precisam de
+    # privilégios), então a proteção real vem daqui:
+    # =========================================================================
+
+    # Impede escalada de privilégio por binários setuid/setgid: nada dentro
+    # do container consegue ganhar privilégios que já não tem.
+    security_opt:
+      - no-new-privileges:true
+
+    # Capabilities: remove do conjunto padrão do Docker as que o sandbox não
+    # precisa. Mantidas de propósito: NET_RAW (raw sockets para nmap -sS,
+    # tcpdump, hping3), NET_BIND_SERVICE (portas baixas), CHOWN, DAC_OVERRIDE,
+    # FOWNER, SETUID/SETGID (sudo), KILL.
+    cap_drop:
+      - MKNOD
+      - SETFCAP
+      - AUDIT_WRITE
+      - SYS_CHROOT
+      - FSETID
+
+    # Sistema de arquivos somente-leitura: o container não consegue alterar a
+    # própria imagem. A escrita acontece só nos volumes e nos tmpfs abaixo.
+    read_only: true
+
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=512m
+      - /run:rw,nosuid,nodev,size=16m
+      - /var/tmp:rw,nosuid,nodev,size=64m
+      - /root/.cache:rw,nosuid,nodev,size=256m
+
+    # Limites de recurso: trava fork bombs e exaustão de CPU/memória.
+    pids_limit: 512
+    mem_limit: 4g
+    cpus: 2.0
 
     command: ["/bin/bash"]
 
