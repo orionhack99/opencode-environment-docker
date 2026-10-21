@@ -1,104 +1,81 @@
-# syntax=docker/dockerfile:1
-
-# ---------------------------------------------------------------------------
-# Sandbox OpenCode + Herdr sobre Kali Linux.
-#
-# A imagem base do Kali é enxuta e NÃO traz ferramentas de pentest prontas:
-# aqui entra apenas o runtime do OpenCode + Herdr. Instale as ferramentas que
-# precisar direto no container (apt) ou estenda a imagem (veja o README).
-# ---------------------------------------------------------------------------
+# Usar a imagem oficial mais recente do Debian
 FROM kalilinux/kali-rolling:latest
 
-# Versão fixa do OpenCode (vazio = "latest"). Fixe para builds reprodutíveis.
-ARG OPENCODE_VERSION=""
+# Evitar travar a instalação esperando respostas no terminal
+ENV DEBIAN_FRONTEND=noninteractive
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8 \
-    TERM=xterm-256color \
-    COLORTERM=truecolor \
-    # Diretório de instalação do Herdr (o instalador oficial respeita esta variável)
-    HERDR_INSTALL_DIR=/usr/local/bin
-
-# pipefail faz o build quebrar se um `curl | sh` falhar no meio do download.
+# pipefail: o build QUEBRA se um `curl | sh` falhar no meio do download.
+# Sem isso, um download truncado produz uma imagem sem o binário e sem erro.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# ---------------------------------------------------------------------------
-# Dependências básicas
-# ---------------------------------------------------------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
-        git \
-        procps \
-        sudo \
-        tmux \
+# Instalar dependências básicas essenciais para os scripts rodarem
+# tar   -> o instalador do OpenCode extrai .tgz e aborta se o tar faltar
+# unzip -> várias tools de pentest distribuem-se em .zip
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    sudo \
+    ca-certificates \
+    procps \
+    tmux \
+    tar \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# ---------------------------------------------------------------------------
-# Herdr — instalador oficial (valida o SHA-256 do binário antes de instalar)
-# https://herdr.dev/docs/install/
-# ---------------------------------------------------------------------------
-RUN curl -fsSL --retry 3 --connect-timeout 10 https://herdr.dev/install.sh | sh \
-    && herdr --version
+# Criar o usuário comum
+RUN useradd -m -s /bin/bash kaliuser
 
-# ---------------------------------------------------------------------------
-# OpenCode — instalador oficial
-# https://opencode.ai/v2/docs
-# ---------------------------------------------------------------------------
+# PERMISSÃO DE ROOT (SUDO): Permite ao kaliuser rodar comandos como root sem pedir senha
+RUN echo "kaliuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/kaliuser \
+    && chmod 0440 /etc/sudoers.d/kaliuser
+
+# Configurar o diretório de trabalho padrão com permissões corretas
+WORKDIR /workspace
+RUN chown kaliuser:kaliuser /workspace
+
+# Alternar para o usuário comum para manter o ambiente isolado por padrão
+USER kaliuser
+ENV HOME=/home/kaliuser
+
+
+# Versão fixa do OpenCode (vazio = "latest"). Fixe para builds reprodutíveis.
+# O Compose passa este build arg; sem o ARG declarado o Docker avisa que o
+# argumento não foi usado e a versão fixada é ignorada.
+ARG OPENCODE_VERSION=""
+
+# Instalar o Herdr usando o script oficial indicado
+RUN curl -fsSL --retry 3 --connect-timeout 10 https://herdr.dev/install.sh | sh
+
+# Instalar o OpenCode usando o script oficial indicado
 RUN if [ -n "${OPENCODE_VERSION}" ]; then \
         curl -fsSL --retry 3 --connect-timeout 10 https://opencode.ai/v2/install | bash -s -- --version "${OPENCODE_VERSION}"; \
     else \
         curl -fsSL --retry 3 --connect-timeout 10 https://opencode.ai/v2/install | bash; \
-    fi \
-    && ln -sf /root/.opencode/bin/opencode /usr/local/bin/opencode \
-    && opencode --version
+    fi
 
-# ---------------------------------------------------------------------------
-# PATH para shells de login e não-login
-# ---------------------------------------------------------------------------
-ENV PATH="/root/.opencode/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+# CLONAR O REPOSITÓRIO AUTOMATICAMENTE (Nova Funcionalidade)
+# IMPORTANTE: o clone fica em /opt/opencode-pentester e NÃO em /workspace.
+# O Compose monta a pasta do host por cima de /workspace (bind mount) e
+# cobriria o clone, deixando o framework invisível em tempo de execução.
+# O clone roda como root (não depende do sudo) e a posse volta ao kaliuser
+# para o agente poder gravar findings, DB e outputs.
+USER root
+RUN git clone https://github.com/humaidhahm/opencode-pentester.git /opt/opencode-pentester \
+    && chown -R kaliuser:kaliuser /opt/opencode-pentester
+USER kaliuser
 
-RUN printf '%s\n' \
-        'export PATH="/root/.opencode/bin:$PATH"' \
-        'export PATH="$HERDR_INSTALL_DIR:$PATH"' \
-        > /etc/profile.d/opencode-herdr.sh \
-    && chmod 0644 /etc/profile.d/opencode-herdr.sh
+# Caminho canônico do framework dentro do container
+ENV OPENCODE_PENTESTER_DIR=/opt/opencode-pentester
 
-# ---------------------------------------------------------------------------
-# Configuração do Herdr com defaults sensatos dentro de container
-# ---------------------------------------------------------------------------
-RUN mkdir -p /root/.config/herdr && cat > /root/.config/herdr/config.toml <<'EOF'
-# Pular o onboarding interativo de primeiro uso (não há como responder dentro
-# de um container não-interativo).
-onboarding = false
+# 7. EXPORTAR O PATH: Corrigido apontando apenas para as pastas do kaliuser
+ENV PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:${PATH}"
 
-[terminal]
-default_shell = "/bin/bash"
+# 8. Correção do Erro: Grava no .bashrc do KALIUSER (e não do root)
+RUN echo 'export PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:$PATH"' >> ${HOME}/.bashrc
 
-[server]
-# Tamanho virtual usado quando nenhum cliente está conectado.
-headless_cols = 120
-headless_rows = 40
 
-[ui.sound]
-# Container não tem placa de som; evita warnings e delays.
-enabled = false
 
-[ui.toast]
-# Toast é in-app e funciona, mas o delivery externo não faz sentido no container.
-delivery = "herdr"
-EOF
 
-# ---------------------------------------------------------------------------
-# Integração oficial Herdr <-> OpenCode (estado do agente + restauração de sessão)
-# https://herdr.dev/docs/integrations/
-# ---------------------------------------------------------------------------
-RUN herdr integration install opencode
 
-# ---------------------------------------------------------------------------
-# Workspace
-# ---------------------------------------------------------------------------
-WORKDIR /workspace
-
+# Iniciar com um terminal interativo
 CMD ["/bin/bash"]

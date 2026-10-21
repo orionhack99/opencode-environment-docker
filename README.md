@@ -3,47 +3,56 @@
 [![Build](https://github.com/orionhack99/opencode-environment-docker/actions/workflows/build.yml/badge.svg)](https://github.com/orionhack99/opencode-environment-docker/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Base](https://img.shields.io/badge/base-kali--rolling-363636)](https://www.kali.org/)
+[![Framework](https://img.shields.io/badge/opencode--pentester-blue)](https://github.com/humaidhahm/opencode-pentester)
 
 Ambiente **isolado em Docker** para rodar um agente de IA de segurança ofensiva
-com um painel de gerenciamento de terminais:
+com um painel de gerenciamento de terminais — com o framework
+[opencode-pentester](https://github.com/humaidhahm/opencode-pentester) já
+clonado dentro da imagem.
 
 | Componente | O que é |
 |---|---|
 | **Kali Linux rolling** | Base com o repositório Kali configurado — **sem** ferramentas pré-instaladas |
 | **OpenCode** | Agente de IA que lê, escreve e executa comandos no seu projeto |
 | **Herdr** | Painel TUI de *workspaces / tabs / panes* para orquestrar vários agentes |
+| **opencode-pentester** | Framework de pentest/auditoria (12 agentes, 69 categorias de ataque, 17 auditorias OWASP) clonado no build |
+| **kaliuser** | Usuário **não-root** do container, com `sudo` sem senha para as tools de pentest |
 
 O objetivo é dar ao agente um **laboratório descartável**: você aponta o
 OpenCode para um alvo, ele ataca, e o estrago fica dentro do container.
 
-**🇧🇷 Português (BR)** · **🇬🇧 [English](#english)**
+**🇧🇷 Português (BR)** · **🇬🇧 [English](#english)** · [⬆ Sumário](#-sumário)
 
 ---
 
 ## 📋 Sumário
 
-- [Português (BR)](#português--br)
+- [Português (BR)](#português-br)
   - [Requisitos](#requisitos)
   - [Início rápido](#início-rápido)
+  - [O que já vem pronto na imagem](#o-que-já-vem-pronto-na-imagem)
   - [Uso](#uso)
-  - [Atalhos do Herdr](#atalhos-do-herdr)
+  - [Atalhos do Herdr](#3-atalhos-do-herdr)
   - [Instalando ferramentas de pentest](#instalando-ferramentas-de-pentest)
   - [Volumes e persistência](#volumes-e-persistência)
   - [🔒 Segurança do sandbox](#-segurança-do-sandbox)
   - [Rede](#rede)
   - [Atualizando](#atualizando)
+  - [CI/CD](#cicd)
   - [Solução de problemas](#solução-de-problemas)
   - [Estrutura do projeto](#estrutura-do-projeto)
 - [English](#english)
   - [Requirements](#requirements)
   - [Quick start](#quick-start)
+  - [What ships in the image](#what-ships-in-the-image)
   - [Usage](#usage)
-  - [Herdr shortcuts](#herdr-shortcuts)
+  - [Herdr shortcuts](#3-herdr-shortcuts)
   - [Installing pentest tooling](#installing-pentest-tooling)
   - [Volumes and persistence](#volumes-and-persistence)
   - [🔒 Sandbox security](#-sandbox-security)
   - [Network](#network)
   - [Updating](#updating)
+  - [CI/CD](#cicd-1)
   - [Troubleshooting](#troubleshooting)
   - [Project layout](#project-layout)
 - [Licença](#licença)
@@ -85,6 +94,9 @@ herdr      # abre o painel de workspaces/panes
 
 Sai com `Ctrl+D` (ou `exit`).
 
+O build faz três coisas: baixa o **Kali rolling**, instala o **OpenCode** e o
+**Herdr** e clona o **opencode-pentester** em `/opt/opencode-pentester`.
+
 ### Comandos mais usados
 
 ```bash
@@ -108,6 +120,122 @@ docker compose logs -f sandbox
 docker compose down -v
 ```
 
+## O que já vem pronto na imagem
+
+| Caminho dentro do container | Conteúdo |
+|---|---|
+| `/workspace` | Diretório de trabalho do agente (recebe o bind mount do seu projeto) |
+| `/opt/opencode-pentester` | Framework **clonado durante o build** (fora do bind mount, sempre disponível) |
+| `/workspace/opencode-pentester` | Link simbólico para `/opt/opencode-pentester`, criado na subida do container |
+| `/home/kaliuser/.opencode/bin/opencode` | Binário do OpenCode (no `PATH` da imagem) |
+| `/home/kaliuser/.local/bin/herdr` | Binário do Herdr (no `PATH` da imagem) |
+| `/home/kaliuser/.config/herdr/config.toml` | Config do Herdr — **você precisa criar** (veja abaixo) |
+| `/home/kaliuser/.config/opencode/plugins/` | Plugin do Herdr — instalado com `herdr integration install opencode` |
+| `/home/kaliuser/.local/share/opencode` | `auth.json`, banco, sessões e logs do OpenCode |
+
+### Usuário `kaliuser` e `sudo`
+
+O container **não roda como root**. A imagem cria o usuário `kaliuser`
+(uid `1000`, home em `/home/kaliuser`) e o Compose não sobrescreve esse
+usuário.
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  id -un                 # kaliuser
+  id -u                  # 1000
+  echo $HOME             # /home/kaliuser
+  sudo -n true && echo "sudo sem senha: OK"
+'
+```
+
+O `sudo` sem senha existe porque as ferramentas de pentest precisam de
+privilégios (raw sockets, `tcpdump`, criação de interfaces). Na prática,
+**o agente consegue virar root dentro do container** — a fronteira de
+segurança é o container, não o usuário.
+
+Consequência prática: os arquivos criados no bind mount belong ao uid `1000`
+do container. Em Linux, esse é o uid da maioria dos usuários de desktop, então
+costuma "dar certo"; em macOS/Windows (Docker Desktop) as permissões são
+virtualizadas e não há problema. Se aparecer `permission denied`, ajuste no
+host: `sudo chown -R $(id -u) .`.
+
+### Onde fica o `opencode-pentester`
+
+O framework é clonado **durante o build** em:
+
+```
+/opt/opencode-pentester
+```
+
+Ele fica **fora** de `/workspace` de propósito: o Compose monta a sua pasta do
+host sobre `/workspace` (bind mount) e cobriria qualquer arquivo que estivesse
+ali, deixando o framework invisível em tempo de execução — era exatamente o
+que acontecia antes desta correção.
+
+Na subida do container, o Compose cria um link simbólico dentro do workspace,
+para o agente encontrar o framework onde trabalha:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  ls -l /workspace/opencode-pentester   # -> /opt/opencode-pentester
+  echo $OPENCODE_PENTESTER_DIR           # -> /opt/opencode-pentester
+  ls /opt/opencode-pentester | head'
+```
+
+> O link é criado em modo *best effort*: se a pasta do host não for gravável
+> pelo uid `1000` do container, o link é ignorado silenciosamente. Nesse
+> caso, use sempre o caminho canônico `/opt/opencode-pentester` (ou a variável
+> `$OPENCODE_PENTESTER_DIR`).
+
+Se preferir ter o framework **dentro** da pasta do host (por exemplo para o
+`git status` do projeto não mostrar um link estranho), copie a partir da
+imagem:
+
+```bash
+# Copia o framework da imagem para a pasta do host
+docker run --rm -v "$PWD:/out" --entrypoint bash opencode-sandbox:latest -lc \
+  'cp -a /opt/opencode-pentester /out/'
+```
+
+### Config inicial do Herdr
+
+A imagem atual **não** traz um `config.toml`. Sem ele, o Herdr mostra o
+onboarding de primeiro uso — que não dá para responder dentro de um
+container. Crie o arquivo uma vez:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/herdr
+  cat > ~/.config/herdr/config.toml <<"EOF"
+  onboarding = false
+
+  [terminal]
+  default_shell = "/bin/bash"
+
+  [server]
+  headless_cols = 120
+  headless_rows = 40
+
+  [ui.sound]
+  enabled = false
+  EOF'
+```
+
+> Alternativa: `herdr --default-config > ~/.config/herdr/config.toml` escreve a
+> configuração completa padrão do Herdr.
+
+Para a sidebar mostrar o estado do agente (`working`, `blocked`, `done`,
+`idle`), instale a integração oficial:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  herdr integration install opencode'
+```
+
+Isso grava `~/.config/opencode/plugins/herdr-agent-state.js`. Reinicie o
+OpenCode depois de instalar.
+
 ## Uso
 
 ### 1. Login do OpenCode
@@ -119,14 +247,17 @@ docker compose run --rm sandbox opencode auth login
 ```
 
 Ou, dentro da TUI do OpenCode, use o comando `/connect`.
-O token fica salvo em `/root/.local/share/opencode/auth.json`, num volume
-nomeado — **sobrevive à recriação do container**.
+O token fica salvo em `/home/kaliuser/.local/share/opencode/auth.json` — num
+volume nomeado, **sobrevive à recriação do container**; sem volume (configuração
+atual), ele é **perdido** a cada `docker compose run --rm`. Veja
+[Volumes e persistência](#volumes-e-persistência).
 
 ### 2. Organizando o trabalho com o Herdr
 
 O Herdr gerencia *workspaces* (projetos), *tabs* e *panes* (terminais).
 Dentro de um pane você roda o OpenCode; o Herdr detecta o agente e mostra o
-estado (`working`, `blocked`, `done`, `idle`) na barra lateral.
+estado (`working`, `blocked`, `done`, `idle`) na barra lateral — desde que a
+[integração](#config-inicial-do-herdr) esteja instalada.
 
 ```bash
 docker compose run --rm sandbox herdr
@@ -189,36 +320,63 @@ herdr agent wait <alvo> --until idle --timeout 120000
 herdr agent prompt <alvo> "enumere os endpoints" --wait
 ```
 
+### 5. Rodando uma auditoria com o `opencode-pentester`
+
+Com o framework em `/opt/opencode-pentester` (também acessível como
+`/workspace/opencode-pentester`, veja
+[Onde fica o opencode-pentester](#onde-fica-o-opencode-pentester)):
+
+```bash
+# Instala as ~75 ferramentas de pentest e registra a skill no OpenCode
+docker compose run --rm sandbox bash -lc '
+  cd "$OPENCODE_PENTESTER_DIR" && sudo bash install.sh'
+
+# Confere quais tools estão disponíveis
+docker compose run --rm sandbox bash -lc '
+  cd "$OPENCODE_PENTESTER_DIR" && bash db/doctor.sh'
+```
+
+Depois, dentro do container, é só chamar o agente:
+
+```bash
+# Pentest com autorização explícita
+opencode run "Tenho autorização para testar https://alvo.com. Use opencode-pentester. Orçamento de tempo: 120 minutos."
+
+# Auditoria defensiva do seu próprio código
+cp "$OPENCODE_PENTESTER_DIR/AGENTS.md" /workspace/meu-projeto/AGENTS.md
+opencode run "Execute a auditoria de segurança definida em AI-CHECKLIST.MD neste projeto"
+```
+
+> ⚠️ O `install.sh` baixa dezenas de ferramentas (nmap, sqlmap, nuclei,
+> ffuf, metasploit, bloodhound...). Reserve tempo e disco, e use
+> `bash install.sh --global-only` se quiser pular a instalação.
+>
+> ⚠️ As ferramentas instaladas e o banco de findings ficam na camada do
+> container: um `docker compose run --rm` novo começa do zero. O código do
+> framework, em si, continua lá — ele vem da imagem.
+
 ## Instalando ferramentas de pentest
 
 A imagem é **intencionalmente mínima**: só o runtime do OpenCode e do Herdr.
-Você instala as ferramentas que precisar.
-
-> ⚠️ O filesystem do container é **somente-leitura**, então o `apt-get install`
-> não funciona no sandbox padrão. Use um dos dois caminhos abaixo.
-
-**1. No container, com escrita habilitada (efêmero — some ao recriar):**
+O filesystem do container é **gravável**, então o `apt-get install` funciona
+diretamente — com `sudo`, porque o usuário padrão é o `kaliuser`:
 
 ```bash
-# Crie o override uma única vez
-cat > docker-compose.tools.yml <<'EOF'
-services:
-  sandbox:
-    read_only: false
-EOF
-
-# Instale as ferramentas
-docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox bash
-# dentro do container:
-apt-get update && apt-get install -y nmap sqlmap ffuf gobuster nikto
+docker compose run --rm sandbox bash -lc '
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends \
+    nmap sqlmap ffuf gobuster nikto whatweb'
 ```
 
-**2. De forma permanente (recomendado se você sempre usa as mesmas tools):**
+> ⚠️ As ferramentas instaladas nesse passo são **efêmeras**: somem quando o
+> container é recriado (`docker compose run --rm`). Para torná-las
+> permanentes, grave-as na imagem.
 
-Estenda a imagem num `Dockerfile.tools` no seu ambiente:
+**Extendendo a imagem (permanente):**
 
 ```dockerfile
 FROM opencode-sandbox:latest
+USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nmap sqlmap ffuf gobuster nikto whatweb \
     && rm -rf /var/lib/apt/lists/*
@@ -228,35 +386,93 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 docker build -f Dockerfile.tools -t opencode-sandbox:tools .
 ```
 
-E aponte o Compose para ela (no `docker-compose.yml`):
+E aponte o Compose para ela sem editar o `docker-compose.yml`, usando um
+override:
 
 ```yaml
+# docker-compose.tools.yml
+services:
+  sandbox:
     image: opencode-sandbox:tools
+    build: null
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox
 ```
 
 > ⚠️ `kali-linux-meta` / `kali-tools-full` instalam **toda** a suíte do Kali
-> (dezenas de GB). Prefira listas curtas e sob medida.
+> (dezenas de GB). Prefira listas curtas e sob medida — ou use o
+> `install.sh` do `opencode-pentester`, que faz a curadoria por você.
 
 ## Volumes e persistência
 
 | Tipo | Host / Origem | No container | O que guarda |
 |---|---|---|---|
 | Bind mount | `.` (a pasta do projeto) | `/workspace` | O código em que o agente trabalha |
-| Volume nomeado | `opencode-config` | `/root/.config/opencode` | Config do OpenCode |
-| Volume nomeado | `opencode-data` | `/root/.local/share/opencode` | `auth.json`, banco, sessões, logs |
-| Volume nomeado | `opencode-state` | `/root/.local/state/opencode` | Registro do serviço em background |
-| Volume nomeado | `herdr-config` | `/root/.config/herdr` | `config.toml` do Herdr |
-| Volume nomeado | `herdr-state` | `/root/.herdr` | Worktrees, sessão e estado do Herdr |
+| Volume nomeado | `opencode-config` | `/home/kaliuser/.config/opencode` | Config do OpenCode |
+| Volume nomeado | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json`, banco, sessões, logs |
+| Volume nomeado | `opencode-state` | `/home/kaliuser/.local/state/opencode` | Registro do serviço em background |
+| Volume nomeado | `herdr-config` | `/home/kaliuser/.config/herdr` | `config.toml` do Herdr |
+| Volume nomeado | `herdr-state` | `/home/kaliuser/.herdr` | Worktrees, sessão e estado do Herdr |
+
+> ⚠️ **Estado atual:** as linhas de volumes nomeados estão **comentadas** no
+> `docker-compose.yml` — e ainda apontam para `/root/...`, caminho da versão
+> anterior, quando o container rodava como root. Na prática, hoje existe
+> **apenas o bind mount `.:/workspace`** — config, login e sessões vivem na
+> camada gravável do container e são perdidos a cada recriação. Os volumes
+> declarados no fim do arquivo existem, mas não são montados em lugar nenhum.
+>
+> Se você descomentar as linhas do Compose, ajuste os caminhos para
+> `/home/kaliuser/...` (é onde o usuário `kaliuser` realmente grava).
+
+### Como persistir sem editar o Compose
+
+Crie um override que monta os volumes nos caminhos do `kaliuser`:
+
+```yaml
+# docker-compose.persist.yml
+services:
+  sandbox:
+    volumes:
+      - opencode-config:/home/kaliuser/.config/opencode
+      - opencode-data:/home/kaliuser/.local/share/opencode
+      - opencode-state:/home/kaliuser/.local/state/opencode
+      - herdr-config:/home/kaliuser/.config/herdr
+      - herdr-state:/home/kaliuser/.herdr
+
+volumes:
+  opencode-config:
+  opencode-data:
+  opencode-state:
+  herdr-config:
+  herdr-state:
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sandbox
+```
+
+Volume nomeado em caminho que não existe na imagem é criado **com dono
+`root`**. Corrija a permissão uma vez:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sandbox bash -lc '
+  sudo chown -R kaliuser:kaliuser \
+    /home/kaliuser/.config/opencode \
+    /home/kaliuser/.local/share/opencode \
+    /home/kaliuser/.local/state/opencode \
+    /home/kaliuser/.config/herdr \
+    /home/kaliuser/.herdr'
+```
 
 Os volumes nomeados são **preferidos a bind mounts do `~`** porque funcionam
 igual em Linux, macOS e Windows, sem problemas de permissão de arquivo.
 
 ⚠️ O bind mount `.:/workspace` dá **acesso de escrita ao agente sobre a sua
 pasta**. Use um diretório dedicado para os alvos, não a sua pasta pessoal.
-Os arquivos criados ali dentro ficam com dono `root` (o container roda como
-root) — se isso incomodar, use `sudo chown -R $(id -u) .` na pasta.
 
-Recomeçar do zero (apaga login, sessões e config):
+Recomeçar do zero (apaga containers e volumes):
 
 ```bash
 docker compose down -v
@@ -264,21 +480,21 @@ docker compose down -v
 
 ## 🔒 Segurança do sandbox
 
-O container roda como **root** — é intencional: as ferramentas de pentest
-precisam de privilégios (raw sockets, `tcpdump`, criação de interfaces).
-A fronteira de isolamento é o **container**, e ela é reforçada aqui:
+O sandbox roda **dentro de uma VM**, então você já tem duas camadas: a VM
+contém o host, e o container contém o workspace. O que a configuração atual
+garante **dentro** do container:
 
 | Controle | Efeito |
 |---|---|
-| `no-new-privileges:true` | Nada dentro do container consegue escalar privilégio via binário setuid/setgid |
-| `cap_drop: MKNOD, SETFCAP, AUDIT_WRITE, SYS_CHROOT, FSETID` | Remove capabilities do padrão do Docker que o sandbox não usa. Mantidas: `NET_RAW` (nmap -sS, tcpdump), `NET_BIND_SERVICE` (portas baixas), `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETUID/SETGID`, `KILL` |
-| `read_only: true` | O container não consegue alterar a própria imagem. Escrita só nos volumes e tmpfs |
-| tmpfs `nosuid,nodev` | `/tmp`, `/run`, `/var/tmp` e `~/.cache` sem execução nem setuid |
-| `pids_limit: 512` | Trava fork bombs |
-| `mem_limit: 4g` / `cpus: 2.0` | Evita exaustão de recursos |
+| Usuário padrão `kaliuser` | O agente não roda como root por padrão |
+| `sudo` sem senha | Root sob demanda — as tools de pentest precisam (raw sockets, `tcpdump`). Anula o isolamento de *usuário*, não o de *container* |
 | `init: true` | PID 1 faz o reaping de processos (o Herdr abre vários subprocessos) |
-| Perfil seccomp padrão do Docker | Bloqueia dezenas de syscalls considerados perigosos |
-| Sem `privileged`, sem `network_mode: host` | Configuração padrão, sem brecha de escape |
+| Sem `privileged` | Sem escape de container |
+| Sem `network_mode: host` | Rede `bridge` padrão |
+| Sem `docker.sock` | O container não controla o host |
+| Bind mount único (`.:/workspace`) | Escrita restrita ao workspace |
+| Rootfs gravável | O container pode ser alterado em runtime (efêmero) |
+| Limites de recursos | `pids_limit=4096`, `mem_limit=8g` e `cpus=4` — tetos (não reservas), ajustáveis por `SANDBOX_PIDS_LIMIT`, `SANDBOX_MEM_LIMIT` e `SANDBOX_CPUS` |
 
 ### O que **não** fazer
 
@@ -286,6 +502,8 @@ A fronteira de isolamento é o **container**, e ela é reforçada aqui:
 - ❌ Nunca use `--privileged` — derruba todas as proteções acima.
 - ❌ Nunca monte `/`, `/etc` ou `/root` do host.
 - ❌ Não rode alvo de terceiros sem autorização por escrito.
+- ❌ Não confie no usuário não-root como barreira: com `sudo` sem senha, o
+  agente é root dentro do container.
 
 ### Endurecimento extra (opcional)
 
@@ -320,9 +538,46 @@ EOF
 docker compose -f docker-compose.yml -f docker-compose.lab.yml run --rm sandbox
 ```
 
-Para isolamento mais forte que containers (Kernel do Docker), use uma VM
-dedicada, gVisor (`--runtime=runsc`) ou Firecracker. Num host compartilhado,
-considere um runner descartável.
+Limites de recursos — já existem no Compose, mas podem ser ajustados sem
+editar nada, por variável de ambiente:
+
+```bash
+# VM menor: aperta os tetos
+SANDBOX_PIDS_LIMIT=1024 SANDBOX_MEM_LIMIT=4g SANDBOX_CPUS=2 \
+  docker compose run --rm sandbox
+```
+
+Ou por override, se quiser valores diferentes dos três ao mesmo tempo:
+
+```bash
+cat > docker-compose.limits.yml <<'EOF'
+services:
+  sandbox:
+    pids_limit: 512
+    mem_limit: 4g
+    cpus: 2.0
+EOF
+
+docker compose -f docker-compose.yml -f docker-compose.limits.yml run --rm sandbox
+```
+
+> Os valores padrão são **tetos**, não reservas: só mordem quando o sandbox
+> sai do controle (fork bomb, tool de pentest comendo a VM). Por isso são
+> generosos — `nuclei`, `ffuf`, `masscan` e `metasploit` abrem muitos
+> processos e consome memória.
+
+> ⚠️ **`no-new-privileges:true` é incompatível com o `sudo`**: o bit
+> `no_new_privs` faz o kernel ignorar o bit setuid, e o `sudo` deixa de
+> funcionar. Só use os dois se aceitar perder o `sudo`.
+>
+> ⚠️ `read_only: true` exige volumes para todos os caminhos graváveis
+> (`/home/kaliuser/...`, `/tmp`, `/run`), senão o OpenCode e o Herdr não
+> sobem.
+
+Como o sandbox roda **dentro de uma VM**, a fronteira mais forte já existe:
+o kernel da VM, e não o do host. Dentro dela, o container ainda usa o kernel
+do Docker — se quiser uma camada extra, use gVisor (`--runtime=runsc`) ou
+Firecracker. Num host compartilhado (sem VM), considere um runner descartável.
 
 ### ⚠️ Uso responsável
 
@@ -336,8 +591,12 @@ laboratório e pesquisa de segurança.
   ao OpenCode e mantenha o bind mount restrito a uma pasta de trabalho.
 - **Não commite segredos.** O `.gitignore` exclui `.env`, chaves e `auth.json`,
   mas confira `git status` antes de `git push`.
-- **Volumes nomeados guardam tokens** (`auth.json`). Trate-os como
-  credenciais: `docker compose down -v` quando não precisar mais.
+- **`auth.json` guarda tokens.** Hoje ele vive na camada do container e some
+  com ele; se você montar volumes, trate-os como credenciais:
+  `docker compose down -v` quando não precisar mais.
+- **O `opencode-pentester` embutido tem termos próprios** (veja o
+  [DISCLAIMER.md](https://github.com/humaidhahm/opencode-pentester/blob/main/DISCLAIMER.md)
+  dele): ele recusa alvos fora de escopo, mas a responsabilidade final é sua.
 
 ## Rede
 
@@ -347,26 +606,53 @@ de isolamento acima.
 
 ## Atualizando
 
-O filesystem do container é **somente-leitura**, então o upgrade acontece na
-**hora do build**:
+O OpenCode e o Herdr são instalados no **build**, então a atualização
+durável acontece reconstruindo a imagem:
 
 ```bash
 # Atualizar a imagem base (Kali) e reinstalar OpenCode/Herdr
 docker compose build --no-cache --pull
-docker compose up -d --force-recreate sandbox
+docker compose run --rm sandbox opencode --version
+docker compose run --rm sandbox herdr --version
 ```
 
-Para **fixar** a versão do OpenCode (build reprodutível), crie um `.env`:
+O `opencode-pentester` também é clonado no build — use `--no-cache` para
+buscar a versão mais nova do repositório.
 
-```bash
-echo "OPENCODE_VERSION=1.2.3" > .env
-docker compose build --no-cache
-```
+Dentro de um container em execução, `opencode upgrade` e `herdr update`
+funcionam (o rootfs é gravável), mas a atualização é **perdida** quando o
+container é recriado: reconstrua a imagem.
 
-> ⚠️ `opencode upgrade` e `herdr update` **não funcionam** dentro de um
-> container em execução: eles gravam em `/root/.opencode/bin` e
-> `/usr/local/bin`, que fazem parte do rootfs somente-leitura. Para atualizar,
-> reconstrua a imagem.
+> ✅ O build arg `OPENCODE_VERSION` funciona: o `Dockerfile` declara
+> `ARG OPENCODE_VERSION` e o instalador oficial aceita `--version`. Para fixar
+> a versão do OpenCode:
+>
+> ```bash
+> OPENCODE_VERSION=0.0.0-beta-17236 docker compose build
+> ```
+>
+> Sem a variável, o build instala a `latest`. O Herdr **não** tem version
+> pin no Dockerfile — só o OpenCode.
+
+## CI/CD
+
+O workflow [`.github/workflows/build.yml`](.github/workflows/build.yml) roda em
+todo push na `main` e em cada pull request:
+
+| Etapa | O que valida |
+|---|---|
+| `docker compose config -q` | O Compose é sintaticamente válido |
+| Postura de segurança (estática) | Nada de `privileged`, `docker.sock`, `network_mode: host` ou `pid/ipc: host` — e presença de `pids_limit`, `mem_limit` e `cpus` |
+| Dockerfile (estático) | `SHELL` com `pipefail`, `ARG OPENCODE_VERSION` declarado e `tar` instalado |
+| Build da imagem | A imagem compila do zero (Kali + OpenCode + Herdr + clone do framework) |
+| Conteúdo da imagem | `USER` é `kaliuser`, `/workspace` pertence ao `kaliuser`, `tar`/`unzip` presentes e o `opencode-pentester` está clonado em `/opt/opencode-pentester` |
+| Framework em runtime | O `opencode-pentester` existe em `/opt/opencode-pentester` **e** aparece linkado em `/workspace/opencode-pentester` (regressão do bug do bind mount) |
+| Smoke test | Usuário padrão, `HOME`, `sudo` sem senha, binários no `PATH`, home gravável |
+| Herdr headless | O servidor sobe e responde a `herdr status server` |
+| Integração Herdr + OpenCode | `herdr integration install opencode` grava o plugin de estado do agente |
+
+O CI **não** executa nenhum pentest nem toca em alvos externos — apenas
+builda e faz smoke test do sandbox.
 
 ## Solução de problemas
 
@@ -382,80 +668,115 @@ docker compose run --rm sandbox bash -lc 'stty rows 50 cols 200; exec bash'
 </details>
 
 <details>
-<summary><b>"Read-only file system" ao gravar em /root</b></summary>
+<summary><b>"opencode: command not found" ou "herdr: command not found"</b></summary>
 
-Esperado: o rootfs do container é somente-leitura. Os caminhos graváveis são
-os volumes nomeados e os tmpfs. Para gravar em outro lugar, monte um volume:
-`-v meu_dir:/root/minha_pasta`.
-</details>
-
-<details>
-<summary><b>"Read-only file system" ao rodar <code>apt-get install</code></b></summary>
-
-Esperado: o rootfs do container é somente-leitura. Para instalar pacotes
-dentro do container, use um override que desabilite o `read_only`:
+O `PATH` da imagem já inclui `~/.opencode/bin` e `~/.local/bin`. Se o shell
+não herdou o ambiente (por exemplo, um `sh` sem login), exporte manualmente:
 
 ```bash
-cat > docker-compose.tools.yml <<'EOF'
-services:
-  sandbox:
-    read_only: false
-EOF
-
-docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox bash
+export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
 ```
 
-Ou instale as ferramentas na hora do build — veja
-[Instalando ferramentas de pentest](#instalando-ferramentas-de-pentest).
+E confira onde os binários realmente estão:
+
+```bash
+docker compose run --rm sandbox bash -lc 'ls -l ~/.opencode/bin ~/.local/bin'
+```
 </details>
 
 <details>
-<summary><b>O Herdr não detecta o estado do agente (fica "idle")</b></summary>
+<summary><b>O Herdr abre o onboarding e trava</b></summary>
 
-Alguns runtimes Linux restritos não expõem o *foreground process group*. Force
-o modo alternativo:
+Esperado: sem `config.toml`, o Herdr mostra o onboarding de primeiro uso, que
+não dá para responder dentro de um container. Crie o arquivo com
+`onboarding = false` — veja
+[Config inicial do Herdr](#config-inicial-do-herdr).
+</details>
+
+<details>
+<summary><b>A sidebar não mostra o estado do agente (fica "idle")</b></summary>
+
+A integração oficial não vem na imagem. Instale dentro do container:
 
 ```bash
-docker compose run --rm -e HERDR_PROCESS_DETECTION=child-groups sandbox herdr
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  herdr integration install opencode'
 ```
 
 Diagnóstico: `herdr agent explain <alvo> --json`.
 </details>
 
 <details>
-<summary><b>Erro de som / notificação</b></summary>
+<summary><b><code>/workspace/opencode-pentester</code> não existe (ou o link some)</b></summary>
 
-Containers não têm placa de som. Já definimos `HERDR_DISABLE_SOUND=1` e
-`ui.sound.enabled = false`.
+O link simbólico é criado na subida do container e é *best effort*: se a pasta
+do host não for gravável pelo uid `1000`, ele não é criado. Use o caminho
+canônico, que vem da imagem e **nunca** é coberto pelo bind mount:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  echo $OPENCODE_PENTESTER_DIR          # /opt/opencode-pentester
+  ls "$OPENCODE_PENTESTER_DIR" | head'
+```
+
+Se preferir o framework dentro da pasta do host, copie a partir da imagem
+(veja [Onde fica o opencode-pentester](#onde-fica-o-opencode-pentester)).
+</details>
+
+<details>
+<summary><b>"permission denied" ao gravar no workspace</b></summary>
+
+O container roda como `kaliuser` (uid `1000`). Os arquivos criados no host
+ficam com esse uid. Ajuste as permissões da pasta hospedeira
+(`sudo chown -R $(id -u) .`).
+</details>
+
+<details>
+<summary><b>"permission denied" em volume nomeado recém-criado</b></summary>
+
+Volume novo é criado com dono `root`. Corrija com `sudo chown -R
+kaliuser:kaliuser /home/kaliuser/...` — veja
+[Como persistir sem editar o Compose](#como-persistir-sem-editar-o-compose).
+</details>
+
+<details>
+<summary><b>O build falha com "'tar' is required but not installed"</b></summary>
+
+O instalador do OpenCode precisa de `tar`. A base Kali nem sempre o traz:
+
+```bash
+docker compose build --no-cache
+```
+
+Se o erro persistir, adicione `tar` (e `ca-certificates`) ao `apt-get install`
+do Dockerfile.
 </details>
 
 <details>
 <summary><b>O OpenCode não conecta / serviço travado</b></summary>
 
 ```bash
-opencode service status
-opencode service restart
-tail -f /root/.local/share/opencode/log/opencode.log
+docker compose run --rm sandbox bash -lc '
+  opencode service status
+  opencode service restart
+  tail -f ~/.local/share/opencode/log/opencode.log'
 ```
 </details>
 
 <details>
-<summary><b>"permission denied" ao rodar tools do Kali</b></summary>
+<summary><b>Erro de som / notificação</b></summary>
 
-O container roda como `root` — se aparecer isso, o problema é o **bind mount**:
-o container grava no host com o UID do root. Ajuste as permissões da pasta
-hospedeira (`sudo chown -R $(id -u) .`).
+Containers não têm placa de som. O Compose já define `HERDR_DISABLE_SOUND=1`;
+no `config.toml` do Herdr use `[ui.sound] enabled = false`.
 </details>
 
 <details>
-<summary><b>"The OpenCode installer failed" ao rodar <code>opencode upgrade</code></b></summary>
+<summary><b>Erro ao rodar <code>opencode upgrade</code> / <code>herdr update</code></b></summary>
 
-Esperado: o rootfs é somente-leitura, então o instalador não consegue gravar em
-`/root/.opencode/bin`. Atualize reconstruindo a imagem:
-
-```bash
-docker compose build --no-cache
-```
+Esperado: o rootfs é gravável, então o upgrade funciona — mas a mudança é
+perdida quando o container é recriado. Reconstrua a imagem
+(`docker compose build --no-cache`) para uma atualização durável.
 </details>
 
 <details>
@@ -471,13 +792,32 @@ docker compose build --no-cache
 
 ```
 .
-├── Dockerfile                  # imagem: Kali + OpenCode + Herdr
+├── Dockerfile                  # imagem: Kali + OpenCode + Herdr + kaliuser + opencode-pentester
 ├── docker-compose.yml          # serviço "sandbox", volumes e isolamento
-├── .github/workflows/build.yml # CI: build + smoke test + segurança
+├── .github/workflows/build.yml # CI: build + smoke test + verificação da postura de segurança
 ├── .dockerignore               # contexto de build enxuto
 ├── .gitignore                  # segredos e artefatos
 ├── LICENSE                     # MIT
 └── README.md
+```
+
+E dentro do container:
+
+```
+/workspace
+├── (bind mount) .              # o seu projeto
+└── opencode-pentester -> /opt/opencode-pentester   # link criado na subida
+
+/opt
+└── opencode-pentester/         # framework clonado durante o build
+
+/home/kaliuser
+├── .opencode/bin/opencode      # binário do OpenCode
+├── .local/bin/herdr            # binário do Herdr
+├── .config/opencode/           # config do OpenCode + plugin do Herdr
+├── .config/herdr/config.toml   # config do Herdr
+├── .local/share/opencode/      # auth.json, banco, sessões e logs
+└── .herdr/                     # worktrees, sessão e estado do Herdr
 ```
 
 ---
@@ -517,6 +857,10 @@ herdr      # open the workspace/pane dashboard
 
 Exit with `Ctrl+D` (or `exit`).
 
+The build does three things: pulls **Kali rolling**, installs **OpenCode** and
+**Herdr** and clones **opencode-pentester** into
+`/opt/opencode-pentester`.
+
 ### Common commands
 
 ```bash
@@ -540,6 +884,120 @@ docker compose logs -f sandbox
 docker compose down -v
 ```
 
+## What ships in the image
+
+| Path inside the container | Contents |
+|---|---|
+| `/workspace` | Agent working directory (receives the bind mount of your project) |
+| `/opt/opencode-pentester` | Framework **cloned at build time** (outside the bind mount, always available) |
+| `/workspace/opencode-pentester` | Symlink to `/opt/opencode-pentester`, created when the container starts |
+| `/home/kaliuser/.opencode/bin/opencode` | OpenCode binary (already on the image `PATH`) |
+| `/home/kaliuser/.local/bin/herdr` | Herdr binary (already on the image `PATH`) |
+| `/home/kaliuser/.config/herdr/config.toml` | Herdr config — **you have to create it** (see below) |
+| `/home/kaliuser/.config/opencode/plugins/` | Herdr plugin — installed with `herdr integration install opencode` |
+| `/home/kaliuser/.local/share/opencode` | `auth.json`, database, sessions and logs |
+
+### The `kaliuser` user and `sudo`
+
+The container **does not run as root**. The image creates the `kaliuser` user
+(uid `1000`, home at `/home/kaliuser`) and Compose does not override it.
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  id -un                 # kaliuser
+  id -u                  # 1000
+  echo $HOME             # /home/kaliuser
+  sudo -n true && echo "passwordless sudo: OK"
+'
+```
+
+Passwordless `sudo` exists because pentest tooling needs privileges (raw
+sockets, `tcpdump`, interface creation). In practice **the agent can become
+root inside the container** — the security boundary is the container, not the
+user.
+
+Practical consequence: files created in the bind mount belong to uid `1000`
+inside the container. On Linux that is the uid of most desktop users, so it
+usually "just works"; on macOS/Windows (Docker Desktop) permissions are
+virtualized and there is no issue. If you hit `permission denied`, fix it on
+the host: `sudo chown -R $(id -u) .`.
+
+### Where `opencode-pentester` lives
+
+The framework is cloned **at build time** into:
+
+```
+/opt/opencode-pentester
+```
+
+It lives **outside** `/workspace` on purpose: Compose mounts your host folder
+over `/workspace` (bind mount), which would cover anything sitting there and
+leave the framework invisible at runtime — exactly what used to happen before
+this fix.
+
+When the container starts, Compose creates a symlink inside the workspace so
+the agent finds the framework exactly where it works:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  ls -l /workspace/opencode-pentester   # -> /opt/opencode-pentester
+  echo $OPENCODE_PENTESTER_DIR           # -> /opt/opencode-pentester
+  ls /opt/opencode-pentester | head'
+```
+
+> The symlink is created on a *best effort* basis: if the host folder is not
+> writable by the container's uid `1000`, the link is silently skipped. In
+> that case, always use the canonical path `/opt/opencode-pentester` (or the
+> `$OPENCODE_PENTESTER_DIR` variable).
+
+If you prefer the framework **inside** your host folder (so the project's
+`git status` does not show a stray symlink), copy it from the image:
+
+```bash
+# Copy the framework from the image into the host folder
+docker run --rm -v "$PWD:/out" --entrypoint bash opencode-sandbox:latest -lc \
+  'cp -a /opt/opencode-pentester /out/'
+```
+
+### Initial Herdr config
+
+The current image **does not** ship a `config.toml`. Without it, Herdr shows
+the first-run onboarding — which cannot be answered inside a container. Create
+the file once:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/herdr
+  cat > ~/.config/herdr/config.toml <<"EOF"
+  onboarding = false
+
+  [terminal]
+  default_shell = "/bin/bash"
+
+  [server]
+  headless_cols = 120
+  headless_rows = 40
+
+  [ui.sound]
+  enabled = false
+  EOF'
+```
+
+> Alternative: `herdr --default-config > ~/.config/herdr/config.toml` writes the
+> full default Herdr configuration.
+
+To make the sidebar show the agent state (`working`, `blocked`, `done`,
+`idle`), install the official integration:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  herdr integration install opencode'
+```
+
+That writes `~/.config/opencode/plugins/herdr-agent-state.js`. Restart
+OpenCode afterwards.
+
 ## Usage
 
 ### 1. OpenCode login
@@ -551,14 +1009,17 @@ docker compose run --rm sandbox opencode auth login
 ```
 
 Or, from inside the OpenCode TUI, use the `/connect` command.
-The token is stored in `/root/.local/share/opencode/auth.json`, in a named
-volume — **it survives container recreation**.
+The token is stored in `/home/kaliuser/.local/share/opencode/auth.json` — in a
+named volume it **survives container recreation**; without a volume (the
+current setup) it is **lost** on every `docker compose run --rm`. See
+[Volumes and persistence](#volumes-and-persistence).
 
 ### 2. Driving the work with Herdr
 
 Herdr manages *workspaces* (projects), *tabs* and *panes* (terminals).
 Run OpenCode inside a pane; Herdr detects the agent and shows its state
-(`working`, `blocked`, `done`, `idle`) in the sidebar.
+(`working`, `blocked`, `done`, `idle`) in the sidebar — as long as the
+[integration](#initial-herdr-config) is installed.
 
 ```bash
 docker compose run --rm sandbox herdr
@@ -621,36 +1082,63 @@ herdr agent wait <target> --until idle --timeout 120000
 herdr agent prompt <target> "enumerate the endpoints" --wait
 ```
 
+### 5. Running an audit with `opencode-pentester`
+
+With the framework in `/opt/opencode-pentester` (also reachable as
+`/workspace/opencode-pentester`, see
+[Where opencode-pentester lives](#where-opencode-pentester-lives)):
+
+```bash
+# Installs the ~75 pentest tools and registers the skill in OpenCode
+docker compose run --rm sandbox bash -lc '
+  cd "$OPENCODE_PENTESTER_DIR" && sudo bash install.sh'
+
+# Check which tools are available
+docker compose run --rm sandbox bash -lc '
+  cd "$OPENCODE_PENTESTER_DIR" && bash db/doctor.sh'
+```
+
+Then, inside the container, just call the agent:
+
+```bash
+# Pentest with explicit authorization
+opencode run "I have authorization to test https://target.com. Use opencode-pentester. Time budget: 120 minutes."
+
+# Defensive audit of your own code
+cp "$OPENCODE_PENTESTER_DIR/AGENTS.md" /workspace/my-project/AGENTS.md
+opencode run "Run the security audit defined in AI-CHECKLIST.MD against this project"
+```
+
+> ⚠️ `install.sh` downloads dozens of tools (nmap, sqlmap, nuclei, ffuf,
+> metasploit, bloodhound...). Budget time and disk, or use
+> `bash install.sh --global-only` to skip the installation.
+>
+> ⚠️ The installed tools and the findings database live in the container
+> layer: a new `docker compose run --rm` starts from zero. The framework
+> source itself stays there — it comes from the image.
+
 ## Installing pentest tooling
 
 The image is **intentionally minimal**: only the OpenCode + Herdr runtime.
-You install the tools you need.
-
-> ⚠️ The container filesystem is **read-only**, so `apt-get install` does not
-> work in the default sandbox. Use one of the two paths below.
-
-**1. Inside the container, with writes enabled (ephemeral — gone on recreate):**
+The container filesystem is **writable**, so `apt-get install` works directly —
+with `sudo`, because the default user is `kaliuser`:
 
 ```bash
-# Create the override once
-cat > docker-compose.tools.yml <<'EOF'
-services:
-  sandbox:
-    read_only: false
-EOF
-
-# Install the tools
-docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox bash
-# inside the container:
-apt-get update && apt-get install -y nmap sqlmap ffuf gobuster nikto
+docker compose run --rm sandbox bash -lc '
+  sudo apt-get update
+  sudo apt-get install -y --no-install-recommends \
+    nmap sqlmap ffuf gobuster nikto whatweb'
 ```
 
-**2. Permanently (recommended if you always use the same tools):**
+> ⚠️ Tools installed this way are **ephemeral**: they are gone when the
+> container is recreated (`docker compose run --rm`). To make them permanent,
+> bake them into the image.
 
-Extend the image with a `Dockerfile.tools` in your own environment:
+**Extending the image (permanent):**
 
 ```dockerfile
 FROM opencode-sandbox:latest
+USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nmap sqlmap ffuf gobuster nikto whatweb \
     && rm -rf /var/lib/apt/lists/*
@@ -660,35 +1148,94 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 docker build -f Dockerfile.tools -t opencode-sandbox:tools .
 ```
 
-And point the Compose file at it (in `docker-compose.yml`):
+And point Compose at it without editing `docker-compose.yml`, using an
+override:
 
 ```yaml
+# docker-compose.tools.yml
+services:
+  sandbox:
     image: opencode-sandbox:tools
+    build: null
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox
 ```
 
 > ⚠️ `kali-linux-meta` / `kali-tools-full` install the **entire** Kali suite
-> (tens of GB). Prefer short, purpose-built lists.
+> (tens of GB). Prefer short, purpose-built lists — or use the
+> `opencode-pentester` `install.sh`, which curates them for you.
 
 ## Volumes and persistence
 
 | Type | Host / Source | In container | What it stores |
 |---|---|---|---|
 | Bind mount | `.` (the project folder) | `/workspace` | The code the agent works on |
-| Named volume | `opencode-config` | `/root/.config/opencode` | OpenCode config |
-| Named volume | `opencode-data` | `/root/.local/share/opencode` | `auth.json`, database, sessions, logs |
-| Named volume | `opencode-state` | `/root/.local/state/opencode` | Background service registration |
-| Named volume | `herdr-config` | `/root/.config/herdr` | Herdr `config.toml` |
-| Named volume | `herdr-state` | `/root/.herdr` | Worktrees, session and Herdr state |
+| Named volume | `opencode-config` | `/home/kaliuser/.config/opencode` | OpenCode config |
+| Named volume | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json`, database, sessions, logs |
+| Named volume | `opencode-state` | `/home/kaliuser/.local/state/opencode` | Background service registration |
+| Named volume | `herdr-config` | `/home/kaliuser/.config/herdr` | Herdr `config.toml` |
+| Named volume | `herdr-state` | `/home/kaliuser/.herdr` | Worktrees, session and Herdr state |
+
+> ⚠️ **Current state:** the named-volume lines are **commented out** in
+> `docker-compose.yml` — and they still point to `/root/...`, the path from the
+> previous version, when the container ran as root. In practice there is
+> **only the `.:/workspace` bind mount** today — config, login and sessions
+> live in the container's writable layer and are lost on every recreation. The
+> volumes declared at the bottom of the file exist, but are not mounted
+> anywhere.
+>
+> If you uncomment those lines, fix the paths to `/home/kaliuser/...` (that is
+> where the `kaliuser` user actually writes).
+
+### How to persist without editing Compose
+
+Create an override that mounts the volumes at the `kaliuser` paths:
+
+```yaml
+# docker-compose.persist.yml
+services:
+  sandbox:
+    volumes:
+      - opencode-config:/home/kaliuser/.config/opencode
+      - opencode-data:/home/kaliuser/.local/share/opencode
+      - opencode-state:/home/kaliuser/.local/state/opencode
+      - herdr-config:/home/kaliuser/.config/herdr
+      - herdr-state:/home/kaliuser/.herdr
+
+volumes:
+  opencode-config:
+  opencode-data:
+  opencode-state:
+  herdr-config:
+  herdr-state:
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sandbox
+```
+
+A named volume mounted on a path that does not exist in the image is created
+**owned by `root`**. Fix the permission once:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sandbox bash -lc '
+  sudo chown -R kaliuser:kaliuser \
+    /home/kaliuser/.config/opencode \
+    /home/kaliuser/.local/share/opencode \
+    /home/kaliuser/.local/state/opencode \
+    /home/kaliuser/.config/herdr \
+    /home/kaliuser/.herdr'
+```
 
 Named volumes are **preferred over bind-mounting `~`** because they behave the
 same on Linux, macOS and Windows, with no file permission quirks.
 
 ⚠️ The `.:/workspace` bind mount gives the agent **write access to your
 folder**. Use a dedicated directory for targets, not your personal one.
-Files created there are owned by `root` (the container runs as root) — run
-`sudo chown -R $(id -u) .` on the host folder if that bothers you.
 
-Start completely fresh (drops login, sessions and config):
+Start completely fresh (drops containers and volumes):
 
 ```bash
 docker compose down -v
@@ -696,21 +1243,21 @@ docker compose down -v
 
 ## 🔒 Sandbox security
 
-The container runs as **root** — by design: pentest tooling needs privileges
-(raw sockets, `tcpdump`, interface creation). The isolation boundary is the
-**container**, and it is reinforced here:
+The sandbox runs **inside a VM**, so you already have two layers: the VM
+contains the host, and the container contains the workspace. What the current
+configuration guarantees **inside** the container:
 
 | Control | Effect |
 |---|---|
-| `no-new-privileges:true` | Nothing inside the container can escalate privileges through a setuid/setgid binary |
-| `cap_drop: MKNOD, SETFCAP, AUDIT_WRITE, SYS_CHROOT, FSETID` | Drops Docker-default capabilities the sandbox does not need. Kept: `NET_RAW` (nmap -sS, tcpdump), `NET_BIND_SERVICE` (low ports), `CHOWN`, `DAC_OVERRIDE`, `FOWNER`, `SETUID/SETGID`, `KILL` |
-| `read_only: true` | The container cannot modify its own image. Writes only to volumes and tmpfs |
-| tmpfs `nosuid,nodev` | `/tmp`, `/run`, `/var/tmp` and `~/.cache` without exec or setuid |
-| `pids_limit: 512` | Stops fork bombs |
-| `mem_limit: 4g` / `cpus: 2.0` | Prevents resource exhaustion |
+| Default user `kaliuser` | The agent does not run as root by default |
+| Passwordless `sudo` | Root on demand — pentest tooling needs it (raw sockets, `tcpdump`). It cancels *user* isolation, not *container* isolation |
 | `init: true` | PID 1 reaps processes (Herdr spawns many) |
-| Docker's default seccomp profile | Blocks dozens of syscalls considered dangerous |
-| No `privileged`, no `network_mode: host` | Defaults, with no escape hatch |
+| No `privileged` | No container escape |
+| No `network_mode: host` | Default `bridge` network |
+| No `docker.sock` | The container cannot control the host |
+| Single bind mount (`.:/workspace`) | Writes restricted to the workspace |
+| Writable rootfs | The container can be modified at runtime (ephemeral) |
+| Resource limits | `pids_limit=4096`, `mem_limit=8g` and `cpus=4` — caps (not reservations), tunable via `SANDBOX_PIDS_LIMIT`, `SANDBOX_MEM_LIMIT` and `SANDBOX_CPUS` |
 
 ### What **not** to do
 
@@ -718,6 +1265,8 @@ The container runs as **root** — by design: pentest tooling needs privileges
 - ❌ Never use `--privileged` — it removes every protection above.
 - ❌ Never mount the host's `/`, `/etc` or `/root`.
 - ❌ Do not target third-party systems without written authorization.
+- ❌ Do not rely on the non-root user as a barrier: with passwordless `sudo`
+  the agent is root inside the container.
 
 ### Extra hardening (optional)
 
@@ -752,9 +1301,46 @@ EOF
 docker compose -f docker-compose.yml -f docker-compose.lab.yml run --rm sandbox
 ```
 
-For isolation stronger than containers (the Docker kernel), use a dedicated VM,
-gVisor (`--runtime=runsc`) or Firecracker. On a shared host, consider a
-disposable runner.
+Resource limits — they already exist in the Compose file, but you can tune them
+without editing anything, through an environment variable:
+
+```bash
+# Smaller VM: tighten the caps
+SANDBOX_PIDS_LIMIT=1024 SANDBOX_MEM_LIMIT=4g SANDBOX_CPUS=2 \
+  docker compose run --rm sandbox
+```
+
+Or through an override, if you want to change all three at once:
+
+```bash
+cat > docker-compose.limits.yml <<'EOF'
+services:
+  sandbox:
+    pids_limit: 512
+    mem_limit: 4g
+    cpus: 2.0
+EOF
+
+docker compose -f docker-compose.yml -f docker-compose.limits.yml run --rm sandbox
+```
+
+> The defaults are **caps**, not reservations: they only bite when the sandbox
+> goes out of control (fork bomb, a pentest tool eating the VM). That is why
+> they are generous — `nuclei`, `ffuf`, `masscan` and `metasploit` spawn many
+> processes and consume memory.
+
+> ⚠️ **`no-new-privileges:true` is incompatible with `sudo`**: the
+> `no_new_privs` bit makes the kernel ignore the setuid bit, so `sudo` stops
+> working. Only use both if you accept losing `sudo`.
+>
+> ⚠️ `read_only: true` requires volumes for every writable path
+> (`/home/kaliuser/...`, `/tmp`, `/run`), otherwise OpenCode and Herdr cannot
+> start.
+
+Since the sandbox runs **inside a VM**, the strongest boundary already exists:
+the VM's kernel, not the host's. Inside it, the container still shares the
+Docker kernel — if you want one more layer, use gVisor (`--runtime=runsc`) or
+Firecracker. On a shared host (no VM), consider a disposable runner.
 
 ### ⚠️ Responsible use
 
@@ -768,8 +1354,12 @@ security research.
   to OpenCode and keep the bind mount restricted to a working folder.
 - **Do not commit secrets.** The `.gitignore` excludes `.env`, keys and
   `auth.json`, but check `git status` before `git push`.
-- **Named volumes hold access tokens** (`auth.json`). Treat them as
-  credentials: run `docker compose down -v` when you no longer need them.
+- **`auth.json` holds access tokens.** Today it lives in the container layer
+  and dies with it; if you mount volumes, treat them as credentials:
+  run `docker compose down -v` when you no longer need them.
+- **The bundled `opencode-pentester` has its own terms** (see its
+  [DISCLAIMER.md](https://github.com/humaidhahm/opencode-pentester/blob/main/DISCLAIMER.md)):
+  it refuses out-of-scope targets, but the final responsibility is yours.
 
 ## Network
 
@@ -779,24 +1369,53 @@ options above.
 
 ## Updating
 
-The container filesystem is **read-only**, so upgrades happen at **build time**:
+OpenCode and Herdr are installed **at build time**, so durable upgrades happen
+by rebuilding the image:
 
 ```bash
 # Update the base image (Kali) and reinstall OpenCode/Herdr
 docker compose build --no-cache --pull
-docker compose up -d --force-recreate sandbox
+docker compose run --rm sandbox opencode --version
+docker compose run --rm sandbox herdr --version
 ```
 
-To **pin** the OpenCode version (reproducible builds), create a `.env` file:
+`opencode-pentester` is cloned at build time too — use `--no-cache` to pull
+the newest revision of the repository.
 
-```bash
-echo "OPENCODE_VERSION=1.2.3" > .env
-docker compose build --no-cache
-```
+Inside a running container, `opencode upgrade` and `herdr update` do work
+(the rootfs is writable), but the upgrade is **lost** when the container is
+recreated: rebuild the image.
 
-> ⚠️ `opencode upgrade` and `herdr update` **do not work** inside a running
-> container: they write to `/root/.opencode/bin` and `/usr/local/bin`, which
-> belong to the read-only rootfs. Rebuild the image to update.
+> ✅ The `OPENCODE_VERSION` build arg works: the `Dockerfile` declares
+> `ARG OPENCODE_VERSION` and the official installer accepts `--version`. To pin
+> the OpenCode version:
+>
+> ```bash
+> OPENCODE_VERSION=0.0.0-beta-17236 docker compose build
+> ```
+>
+> Without the variable, the build installs `latest`. Herdr has **no** version
+> pin in the Dockerfile — only OpenCode does.
+
+## CI/CD
+
+The [`.github/workflows/build.yml`](.github/workflows/build.yml) workflow runs
+on every push to `main` and on every pull request:
+
+| Step | What it validates |
+|---|---|
+| `docker compose config -q` | The Compose file is syntactically valid |
+| Security posture (static) | No `privileged`, `docker.sock`, `network_mode: host` or `pid/ipc: host` — and that `pids_limit`, `mem_limit` and `cpus` are present |
+| Dockerfile (static) | `SHELL` with `pipefail`, `ARG OPENCODE_VERSION` declared and `tar` installed |
+| Image build | The image builds from scratch (Kali + OpenCode + Herdr + framework clone) |
+| Image contents | `USER` is `kaliuser`, `/workspace` is owned by `kaliuser`, `tar`/`unzip` are present and `opencode-pentester` is cloned into `/opt/opencode-pentester` |
+| Framework at runtime | `opencode-pentester` exists in `/opt/opencode-pentester` **and** shows up symlinked in `/workspace/opencode-pentester` (regression guard for the bind-mount bug) |
+| Smoke test | Default user, `HOME`, passwordless `sudo`, binaries on `PATH`, writable home |
+| Herdr headless | The server starts and answers `herdr status server` |
+| Herdr + OpenCode integration | `herdr integration install opencode` writes the agent-state plugin |
+
+The CI **does not** run any pentest and never touches external targets — it
+only builds and smoke-tests the sandbox.
 
 ## Troubleshooting
 
@@ -812,80 +1431,118 @@ docker compose run --rm sandbox bash -lc 'stty rows 50 cols 200; exec bash'
 </details>
 
 <details>
-<summary><b>"Read-only file system" when writing to /root</b></summary>
+<summary><b>"opencode: command not found" or "herdr: command not found"</b></summary>
 
-Expected: the container rootfs is read-only. Writable paths are the named
-volumes and the tmpfs mounts. To write elsewhere, mount a volume:
-`-v my_dir:/root/my_folder`.
+The image `PATH` already includes `~/.opencode/bin` and `~/.local/bin`. If the
+shell did not inherit the environment (e.g. a non-login `sh`), export it
+manually:
+
+```bash
+export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
+```
+
+And check where the binaries actually landed:
+
+```bash
+docker compose run --rm sandbox bash -lc 'ls -l ~/.opencode/bin ~/.local/bin'
+```
 </details>
 
 <details>
-<summary><b>"Read-only file system" when running <code>apt-get install</code></b></summary>
+<summary><b>Herdr shows the onboarding and hangs</b></summary>
 
-Expected: the container rootfs is read-only. To install packages inside the
-container, use an override that disables `read_only`:
-
-```bash
-cat > docker-compose.tools.yml <<'EOF'
-services:
-  sandbox:
-    read_only: false
-EOF
-
-docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbox bash
-```
-
-Or install the tools at build time — see
-[Installing pentest tooling](#installing-pentest-tooling).
+Expected: without a `config.toml`, Herdr shows the first-run onboarding, which
+cannot be answered inside a container. Create the file with
+`onboarding = false` — see [Initial Herdr config](#initial-herdr-config).
 </details>
 
 <details>
 <summary><b>Herdr does not detect the agent state (stays "idle")</b></summary>
 
-Some restricted Linux runtimes do not expose the terminal foreground process
-group. Force the fallback mode:
+The official integration does not ship in the image. Install it inside the
+container:
 
 ```bash
-docker compose run --rm -e HERDR_PROCESS_DETECTION=child-groups sandbox herdr
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  herdr integration install opencode'
 ```
 
 Diagnostics: `herdr agent explain <target> --json`.
 </details>
 
 <details>
-<summary><b>Sound / notification errors</b></summary>
+<summary><b><code>/workspace/opencode-pentester</code> does not exist (or the link is missing)</b></summary>
 
-Containers have no sound card. `HERDR_DISABLE_SOUND=1` and
-`ui.sound.enabled = false` are already set.
+The symlink is created when the container starts and is *best effort*: if the
+host folder is not writable by uid `1000`, it is not created. Use the
+canonical path, which comes from the image and is **never** covered by the
+bind mount:
+
+```bash
+docker compose run --rm sandbox bash -lc '
+  echo $OPENCODE_PENTESTER_DIR          # /opt/opencode-pentester
+  ls "$OPENCODE_PENTESTER_DIR" | head'
+```
+
+If you rather have the framework inside your host folder, copy it from the
+image (see [Where opencode-pentester lives](#where-opencode-pentester-lives)).
+</details>
+
+<details>
+<summary><b>"permission denied" when writing to the workspace</b></summary>
+
+The container runs as `kaliuser` (uid `1000`), so files created on the host
+are owned by that uid. Fix the host folder permissions
+(`sudo chown -R $(id -u) .`).
+</details>
+
+<details>
+<summary><b>"permission denied" on a freshly created named volume</b></summary>
+
+New volumes are created owned by `root`. Fix it with `sudo chown -R
+kaliuser:kaliuser /home/kaliuser/...` — see
+[How to persist without editing Compose](#how-to-persist-without-editing-compose).
+</details>
+
+<details>
+<summary><b>Build fails with "'tar' is required but not installed"</b></summary>
+
+The OpenCode installer needs `tar`, and the Kali base image does not always
+ship it:
+
+```bash
+docker compose build --no-cache
+```
+
+If it still fails, add `tar` (and `ca-certificates`) to the `apt-get install`
+line in the Dockerfile.
 </details>
 
 <details>
 <summary><b>OpenCode will not connect / stuck service</b></summary>
 
 ```bash
-opencode service status
-opencode service restart
-tail -f /root/.local/share/opencode/log/opencode.log
+docker compose run --rm sandbox bash -lc '
+  opencode service status
+  opencode service restart
+  tail -f ~/.local/share/opencode/log/opencode.log'
 ```
 </details>
 
 <details>
-<summary><b>"permission denied" running Kali tools</b></summary>
+<summary><b>Sound / notification errors</b></summary>
 
-The container runs as `root` — so this is usually the **bind mount**: the
-container writes to the host as UID 0. Fix the host folder permissions
-(`sudo chown -R $(id -u) .`).
+Containers have no sound card. Compose already sets `HERDR_DISABLE_SOUND=1`;
+use `[ui.sound] enabled = false` in the Herdr `config.toml`.
 </details>
 
 <details>
-<summary><b>"The OpenCode installer failed" when running <code>opencode upgrade</code></b></summary>
+<summary><b>Errors running <code>opencode upgrade</code> / <code>herdr update</code></b></summary>
 
-Expected: the rootfs is read-only, so the installer cannot write to
-`/root/.opencode/bin`. Update by rebuilding the image:
-
-```bash
-docker compose build --no-cache
-```
+Expected: the rootfs is writable, so the upgrade works — but the change is
+lost when the container is recreated. Rebuild the image
+(`docker compose build --no-cache`) for a durable update.
 </details>
 
 <details>
@@ -901,13 +1558,32 @@ docker compose build --no-cache
 
 ```
 .
-├── Dockerfile                  # image: Kali + OpenCode + Herdr
+├── Dockerfile                  # image: Kali + OpenCode + Herdr + kaliuser + opencode-pentester
 ├── docker-compose.yml          # "sandbox" service, volumes and isolation
-├── .github/workflows/build.yml # CI: build + smoke test + security checks
+├── .github/workflows/build.yml # CI: build + smoke test + security posture checks
 ├── .dockerignore               # slim build context
 ├── .gitignore                  # secrets and artifacts
 ├── LICENSE                     # MIT
 └── README.md
+```
+
+And inside the container:
+
+```
+/workspace
+├── (bind mount) .              # your project
+└── opencode-pentester -> /opt/opencode-pentester   # link created at startup
+
+/opt
+└── opencode-pentester/         # framework cloned at build time
+
+/home/kaliuser
+├── .opencode/bin/opencode      # OpenCode binary
+├── .local/bin/herdr            # Herdr binary
+├── .config/opencode/           # OpenCode config + Herdr plugin
+├── .config/herdr/config.toml   # Herdr config
+├── .local/share/opencode/      # auth.json, database, sessions and logs
+└── .herdr/                     # worktrees, session and Herdr state
 ```
 
 ---
@@ -917,4 +1593,6 @@ docker compose build --no-cache
 [MIT](LICENSE) © 2026 orionhack99
 
 Este projeto não é afiliado, endossado ou mantido pelo Kali Linux, pela
-OpenCode (anomalyco) ou pela Herdr (herdrdev).
+OpenCode (anomalyco) ou pela Herdr (herdrdev). O framework
+[opencode-pentester](https://github.com/humaidhahm/opencode-pentester) é um
+projeto de terceiro, sob licença MIT.

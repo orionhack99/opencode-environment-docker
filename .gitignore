@@ -23,6 +23,10 @@ loot/
 reports/
 exploits/
 
+# Link simbolico do framework opencode-pentester, criado na subida do
+# container dentro do workspace (bind mount)
+opencode-pentester
+
 # Editores e SO
 .idea/
 .vscode/

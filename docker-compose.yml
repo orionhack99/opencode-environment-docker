@@ -8,7 +8,7 @@
 #   docker compose up -d sandbox               # container em background
 #   docker compose down -v                     # remove container e volumes
 # ---------------------------------------------------------------------------
-name: opencode-sandbox
+name: opencode-kali-sandbox
 
 services:
   sandbox:
@@ -28,6 +28,18 @@ services:
     stdin_open: true
     tty: true
 
+    # ------------------------------------------------------------------
+    # Limites de recursos (rede de segurança dentro da VM que hospeda o
+    # sandbox). São tetos, não reservas: só mordem em caso de runaway.
+    # O pentest abre muitos processos (nuclei, ffuf, masscan, metasploit)
+    # e consome memória, então os valores são generosos.
+    # Ajuste por variável de ambiente se a VM for menor:
+    #   SANDBOX_PIDS_LIMIT=1024 SANDBOX_MEM_LIMIT=4g SANDBOX_CPUS=2
+    # ------------------------------------------------------------------
+    pids_limit: ${SANDBOX_PIDS_LIMIT:-4096}
+    mem_limit: ${SANDBOX_MEM_LIMIT:-8g}
+    cpus: ${SANDBOX_CPUS:-4}
+
     working_dir: /workspace
 
     environment:
@@ -42,54 +54,29 @@ services:
       - .:/workspace
 
       # Persistência entre recriações do container (volumes nomeados):
-      #   opencode-config → /root/.config/opencode     (config do opencode)
+      #   opencode-config → /root/.config/opencode      (config do opencode)
       #   opencode-data   → /root/.local/share/opencode (auth.json, db, sessões, logs)
       #   opencode-state  → /root/.local/state/opencode  (registro do serviço)
       #   herdr-config    → /root/.config/herdr         (config do herdr)
       #   herdr-state     → /root/.herdr                (worktrees, sessão, estado)
-      - opencode-config:/root/.config/opencode
-      - opencode-data:/root/.local/share/opencode
-      - opencode-state:/root/.local/state/opencode
-      - herdr-config:/root/.config/herdr
-      - herdr-state:/root/.herdr
+      #- opencode-config:/root/.config/opencode
+      #- opencode-data:/root/.local/share/opencode
+      #- opencode-state:/root/.local/state/opencode
+      #- herdr-config:/root/.config/herdr
+      #- herdr-state:/root/.herdr
 
-    # =========================================================================
-    # ISOLAMENTO DO SANDBOX
-    #
-    # O container roda como root (as ferramentas de pentest precisam de
-    # privilégios), então a proteção real vem daqui:
-    # =========================================================================
-
-    # Impede escalada de privilégio por binários setuid/setgid: nada dentro
-    # do container consegue ganhar privilégios que já não tem.
-    security_opt:
-      - no-new-privileges:true
-
-    # Capabilities: remove do conjunto padrão do Docker as que o sandbox não
-    # precisa. Mantidas de propósito: NET_RAW (raw sockets para nmap -sS,
-    # tcpdump, hping3), NET_BIND_SERVICE (portas baixas), CHOWN, DAC_OVERRIDE,
-    # FOWNER, SETUID/SETGID (sudo), KILL.
-    cap_drop:
-      - MKNOD
-      - SETFCAP
-      - AUDIT_WRITE
-      - SYS_CHROOT
-      - FSETID
-
-    # Sistema de arquivos somente-leitura: o container não consegue alterar a
-    # própria imagem. A escrita acontece só nos volumes e nos tmpfs abaixo.
-    read_only: true
-
-    tmpfs:
-      - /tmp:rw,nosuid,nodev,size=512m
-      - /run:rw,nosuid,nodev,size=16m
-      - /var/tmp:rw,nosuid,nodev,size=64m
-      - /root/.cache:rw,nosuid,nodev,size=256m
-
-    # Limites de recurso: trava fork bombs e exaustão de CPU/memória.
-    pids_limit: 512
-    mem_limit: 4g
-    cpus: 2.0
+    # O framework opencode-pentester é clonado na imagem em
+    # /opt/opencode-pentester (fora do bind mount, que cobriria /workspace).
+    # Aqui ele é ligado dentro do workspace, para o agente encontrar o
+    # framework exatamente onde trabalha.
+    # Se o workspace não for gravável pelo uid 1000 do container, o link é
+    # ignorado silenciosamente e o caminho canônico continua válido:
+    #   $OPENCODE_PENTESTER_DIR  ->  /opt/opencode-pentester
+    entrypoint:
+      - /bin/bash
+      - -c
+      - ln -sfn "$${OPENCODE_PENTESTER_DIR:-/opt/opencode-pentester}" /workspace/opencode-pentester 2>/dev/null || true; exec "$$@"
+      - --
 
     command: ["/bin/bash"]
 

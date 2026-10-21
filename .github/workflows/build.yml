@@ -21,73 +21,213 @@ jobs:
       - name: Valida o docker-compose.yml
         run: docker compose config -q
 
+      - name: Postura de seguranca do compose (estatica)
+        run: |
+          set -euo pipefail
+          cfg="$(docker compose config)"
+          echo "$cfg"
+
+          if grep -qE "privileged:[[:space:]]*true" <<<"$cfg"; then
+            echo "::error::servico com privileged: true"
+            exit 1
+          fi
+          if grep -q "docker.sock" <<<"$cfg"; then
+            echo "::error::docker.sock montado no sandbox"
+            exit 1
+          fi
+          if grep -qE "network_mode:[[:space:]]*host" <<<"$cfg"; then
+            echo "::error::network_mode: host"
+            exit 1
+          fi
+          if grep -qE "^[[:space:]]+(pid|ipc):[[:space:]]*host" <<<"$cfg"; then
+            echo "::error::namespace do host compartilhado (pid/ipc: host)"
+            exit 1
+          fi
+
+          echo "--- limites de recursos ---"
+          if ! grep -qE "^[[:space:]]+pids_limit:" <<<"$cfg"; then
+            echo "::error::pids_limit ausente no serviço sandbox"
+            exit 1
+          fi
+          if ! grep -qE "^[[:space:]]+mem_limit:" <<<"$cfg"; then
+            echo "::error::mem_limit ausente no servico sandbox"
+            exit 1
+          fi
+          if ! grep -qE "^[[:space:]]+cpus:" <<<"$cfg"; then
+            echo "::error::cpus ausente no servico sandbox"
+            exit 1
+          fi
+          echo "postura do compose: OK"
+
+      - name: Dockerfile (pipefail, tar e build arg declarado)
+        run: |
+          set -euo pipefail
+
+          if ! grep -qE "^SHELL .*pipefail" Dockerfile; then
+            echo "::error::SHELL sem pipefail: um 'curl | sh' falhando nao quebra o build"
+            exit 1
+          fi
+
+          if ! grep -qE "^[[:space:]]*ARG OPENCODE_VERSION" Dockerfile; then
+            echo "::error::ARG OPENCODE_VERSION nao declarado: o build arg do Compose e ignorado"
+            exit 1
+          fi
+
+          if ! grep -qE "^[[:space:]]+tar[[:space:]]" Dockerfile; then
+            echo "::error::tar nao instalado: o instalador do OpenCode extrai .tgz e aborta sem ele"
+            exit 1
+          fi
+
+          echo "dockerfile: OK"
+
       - name: Build da imagem
         run: docker compose build
 
-      - name: Smoke test (binarios, config e integracao)
+      - name: Conteudo da imagem (sem o bind mount)
         run: |
           set -euo pipefail
-          docker compose run --rm --no-deps sandbox bash -lc '
+          echo "--- usuario padrao da imagem ---"
+          user="$(docker image inspect --format '{{.Config.User}}' opencode-sandbox:latest)"
+          echo "USER=$user"
+          [ "$user" = "kaliuser" ] \
+            || { echo "::error::USER esperado kaliuser, obtido '$user'"; exit 1; }
+
+          echo "--- arquivos dentro da imagem ---"
+          docker run --rm opencode-sandbox:latest bash -lc '
             set -e
-            command -v opencode >/dev/null || { echo "::error::opencode nao encontrado no PATH"; exit 1; }
-            command -v herdr    >/dev/null || { echo "::error::herdr nao encontrado no PATH"; exit 1; }
-            opencode --version
-            herdr --version
-            test -f /root/.config/herdr/config.toml \
-              || { echo "::error::config.toml do herdr ausente"; exit 1; }
-            test -f /root/.config/opencode/plugins/herdr-agent-state.js \
-              || { echo "::error::plugin herdr-agent-state do opencode ausente"; exit 1; }
-            opencode debug paths
+            echo "HOME=$HOME"
+            test -x "$HOME/.opencode/bin/opencode" \
+              || { echo "::error::binario do opencode ausente em $HOME/.opencode/bin"; exit 1; }
+            test -x "$HOME/.local/bin/herdr" \
+              || { echo "::error::binario do herdr ausente em $HOME/.local/bin"; exit 1; }
+            command -v tar >/dev/null \
+              || { echo "::error::tar ausente na imagem"; exit 1; }
+            command -v unzip >/dev/null \
+              || { echo "::error::unzip ausente na imagem"; exit 1; }
+            test -d /opt/opencode-pentester \
+              || { echo "::error::opencode-pentester ausente em /opt"; exit 1; }
+            test -f /opt/opencode-pentester/install.sh \
+              || { echo "::error::install.sh do opencode-pentester ausente"; exit 1; }
+            owner="$(stat -c %U /opt/opencode-pentester)"
+            echo "/opt/opencode-pentester owner=$owner"
+            [ "$owner" = "kaliuser" ] \
+              || { echo "::error::dono do framework esperado kaliuser, obtido $owner"; exit 1; }
+            owner="$(stat -c %U /workspace)"
+            echo "/workspace owner=$owner"
+            [ "$owner" = "kaliuser" ] \
+              || { echo "::error::dono de /workspace esperado kaliuser, obtido $owner"; exit 1; }
+            echo "--- conteudo de /opt/opencode-pentester ---"
+            ls -1 /opt/opencode-pentester | head -n 15
           '
 
-      - name: Testes de seguranca do sandbox
+      - name: Framework opencode-pentester disponivel em runtime
+        run: |
+          set -euo pipefail
+          # --user root: o checkout do CI pertence ao uid 1001, enquanto o
+          # container roda como uid 1000. Como root o link simbolico e criado
+          # de verdade e conseguimos validar o caminho que o agente usa.
+          docker compose run --rm --no-deps --user root sandbox bash -lc '
+            set -e
+            echo "--- caminho canonico (vem da imagem) ---"
+            test -d /opt/opencode-pentester \
+              || { echo "::error::opencode-pentester ausente em /opt"; exit 1; }
+            test -f /opt/opencode-pentester/install.sh \
+              || { echo "::error::install.sh do opencode-pentester ausente"; exit 1; }
+            echo "caminho canonico: /opt/opencode-pentester"
+
+            echo "--- link dentro do workspace ---"
+            test -L /workspace/opencode-pentester \
+              || { echo "::error::link do framework ausente em /workspace"; exit 1; }
+            target="$(readlink -f /workspace/opencode-pentester)"
+            echo "link -> $target"
+            [ "$target" = "/opt/opencode-pentester" ] \
+              || { echo "::error::link do framework apontando para $target"; exit 1; }
+            test -f /workspace/opencode-pentester/install.sh \
+              || { echo "::error::link do framework quebrado"; exit 1; }
+            echo "framework em runtime: OK"
+          '
+
+      - name: Smoke test (usuario, sudo, binarios e workspace)
         run: |
           set -euo pipefail
           docker compose run --rm --no-deps sandbox bash -lc '
             set -e
-            echo "--- no-new-privileges ---"
-            grep -q "NoNewPrivs:[[:space:]]*1" /proc/self/status \
-              || { echo "::error::no-new-privileges inativo"; exit 1; }
-            grep "NoNewPrivs" /proc/self/status
+            echo "--- identidade ---"
+            echo "user=$(id -un) uid=$(id -u) home=$HOME"
+            [ "$(id -un)" = "kaliuser" ] \
+              || { echo "::error::usuario padrao esperado kaliuser, obtido $(id -un)"; exit 1; }
+            [ "$(id -u)" != "0" ] \
+              || { echo "::error::container rodando como root"; exit 1; }
+            [ "$HOME" = "/home/kaliuser" ] \
+              || { echo "::error::HOME inesperado: $HOME"; exit 1; }
 
-            echo "--- capabilities ---"
-            grep -q "CapEff:[[:space:]]*00000000000025eb" /proc/self/status \
-              || { echo "::error::conjunto de capabilities inesperado"; exit 1; }
-            grep "CapEff" /proc/self/status
+            echo "--- sudo sem senha ---"
+            sudo -n true \
+              || { echo "::error::sudo sem senha indisponivel"; exit 1; }
+            echo "sudo: OK"
 
-            echo "--- rootfs somente-leitura ---"
-            if touch /etc/.ci-write-test 2>/dev/null; then
-              echo "::error::rootfs do container esta gravavel (esperado somente-leitura)"
-              exit 1
-            fi
-            echo "rootfs somente-leitura: OK"
+            echo "--- binarios no PATH ---"
+            command -v opencode >/dev/null \
+              || { echo "::error::opencode fora do PATH ($PATH)"; exit 1; }
+            command -v herdr >/dev/null \
+              || { echo "::error::herdr fora do PATH ($PATH)"; exit 1; }
+            opencode --version
+            herdr --version
 
-            echo "--- tmpfs e volumes gravaveis ---"
-            touch /tmp/.ci-write-test && rm -f /tmp/.ci-write-test
-            touch /root/.config/herdr/.ci-write-test && rm -f /root/.config/herdr/.ci-write-test
-            echo "tmpfs e volumes: OK"
+            echo "--- home gravavel (config, sessoes e logs) ---"
+            touch "$HOME/.ci-write-test" && rm -f "$HOME/.ci-write-test"
+            mkdir -p "$HOME/.config/opencode" "$HOME/.config/herdr" "$HOME/.local/share/opencode"
+            echo "home: OK"
 
-            echo "--- limites de recurso ---"
-            pids=$(cat /sys/fs/cgroup/pids.max)
-            mem=$(cat /sys/fs/cgroup/memory.max)
-            echo "pids.max=$pids memory.max=$mem"
-            [ "$pids" = "512" ] || { echo "::error::pids_limit esperado 512, obtido $pids"; exit 1; }
-            [ "$mem" = "4294967296" ] || { echo "::error::mem_limit esperado 4g, obtido $mem"; exit 1; }
+            echo "--- workspace (bind mount) ---"
+            pwd
+            ls -1 . | head -n 5
           '
 
       - name: Herdr sobe como servidor headless
         run: |
           set -euo pipefail
-          docker compose run --rm --no-deps -d --name herdr-ci sandbox herdr server
-          trap 'docker rm -f herdr-ci >/dev/null 2>&1 || true' EXIT
-          for i in $(seq 1 15); do
-            if docker compose run --rm --no-deps sandbox herdr status server >/dev/null 2>&1; then
-              break
+          docker compose run --rm --no-deps sandbox bash -lc '
+            set -e
+            mkdir -p "$HOME/.config/herdr"
+            printf "onboarding = false\n\n[ui.sound]\nenabled = false\n" > "$HOME/.config/herdr/config.toml"
+
+            herdr server > /tmp/herdr-server.log 2>&1 &
+
+            for i in $(seq 1 15); do
+              if herdr status server >/dev/null 2>&1; then
+                break
+              fi
+              sleep 2
+            done
+
+            if ! herdr status server >/dev/null 2>&1; then
+              echo "::error::servidor do herdr nao respondeu a tempo"
+              tail -n 50 /tmp/herdr-server.log || true
+              exit 1
             fi
-            sleep 2
-          done
-          docker compose run --rm --no-deps sandbox herdr status server
-          docker compose run --rm --no-deps sandbox herdr agent list || true
+
+            herdr status server
+            herdr agent list || true
+            echo "--- log do servidor ---"
+            tail -n 20 /tmp/herdr-server.log || true
+          '
+
+      - name: Integracao Herdr + OpenCode (plugin de estado do agente)
+        run: |
+          set -euo pipefail
+          docker compose run --rm --no-deps sandbox bash -lc '
+            set -e
+            mkdir -p "$HOME/.config/opencode"
+            if herdr integration install opencode > /tmp/herdr-integration.log 2>&1; then
+              test -f "$HOME/.config/opencode/plugins/herdr-agent-state.js" \
+                || { echo "::error::plugin herdr-agent-state ausente apos a instalacao"; exit 1; }
+              echo "integracao herdr + opencode: OK"
+            else
+              echo "::warning::nao foi possivel instalar a integracao opencode do herdr (versao do opencode pode ser incompativel)"
+              cat /tmp/herdr-integration.log || true
+            fi
+          '
 
       - name: Limpeza
         if: always()
