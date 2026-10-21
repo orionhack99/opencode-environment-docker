@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 474" width="1200" height="474" role="img" aria-label="Dominios de seguranca ofensiva e ferramentas por categoria">
+<defs>
+<linearGradient id="pbg" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#0a0d14"/><stop offset="1" stop-color="#12101a"/>
+</linearGradient>
+<radialGradient id="pglow" cx="0.5" cy="0.5" r="0.5">
+  <stop offset="0" stop-color="#ff2d55" stop-opacity="0.22"/>
+  <stop offset="1" stop-color="#ff2d55" stop-opacity="0"/>
+</radialGradient>
+</defs>
+<rect x="0" y="0" width="1200" height="474" fill="url(#pbg)" rx="18"/>
+<ellipse cx="600" cy="0" rx="700" ry="240" fill="url(#pglow)"/>
+<rect x="1" y="1" width="1198" height="472" fill="none" rx="17" stroke="#2a3446" stroke-width="2"/>
+<rect x="32" y="30" width="6" height="46" fill="#ff2d55" rx="3"/>
+<text x="54" y="56" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="26" fill="#e6edf3" font-weight="800" letter-spacing="1">RED TEAM TOOLCHAIN</text>
+<text x="54" y="80" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14.5" fill="#8b98a9">Ferramentas curadas pelo opencode-pentester, por dominio ofensivo</text>
+<text x="1168" y="52" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#ff2d55" font-weight="600" text-anchor="end" letter-spacing="2">offensive security</text>
+<text x="1168" y="72" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="12" fill="#8b98a9" text-anchor="end">opencode-pentester</text>
+<rect x="32" y="104" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="32" y="104" width="270" height="3" fill="#ff2d55" rx="1.5"/>
+<text x="50" y="142" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">RECON &amp; OSINT</text>
+<text x="50" y="164" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Subdominios, URLs e superficie</text>
+<text x="50" y="186" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">amass · subfinder · gau</text>
+<rect x="46" y="198" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="58" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">amass enum -d alvo.com</text>
+<rect x="250" y="124" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="268" y="137" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">01</text>
+<rect x="320" y="104" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="320" y="104" width="270" height="3" fill="#c81e3f" rx="1.5"/>
+<text x="338" y="142" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">NETWORK &amp; SCAN</text>
+<text x="338" y="164" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Hosts, portas e servicos</text>
+<text x="338" y="186" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">nmap · masscan · smap</text>
+<rect x="334" y="198" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="346" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">nmap -sV -p- 10.0.0.0/24</text>
+<rect x="538" y="124" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="556" y="137" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">02</text>
+<rect x="608" y="104" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="608" y="104" width="270" height="3" fill="#ff2d55" rx="1.5"/>
+<text x="626" y="142" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">WEB &amp; APP</text>
+<text x="626" y="164" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Rotas, brute force e misconfig</text>
+<text x="626" y="186" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">ffuf · gobuster · nikto</text>
+<rect x="622" y="198" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="634" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">ffuf -u alvo/FUZZ -w wordlist.txt</text>
+<rect x="826" y="124" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="844" y="137" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">03</text>
+<rect x="896" y="104" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="896" y="104" width="270" height="3" fill="#c81e3f" rx="1.5"/>
+<text x="914" y="142" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">EXPLOIT VALIDATION</text>
+<text x="914" y="164" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">SQLi, XSS, CVEs e fuzzing</text>
+<text x="914" y="186" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">sqlmap · nuclei · dalfox</text>
+<rect x="910" y="198" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="922" y="220" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">sqlmap -u &quot;https://alvo?id=1&quot;</text>
+<text x="922" y="235" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">--batch</text>
+<rect x="1114" y="124" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="1132" y="137" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">04</text>
+<rect x="32" y="284" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="32" y="284" width="270" height="3" fill="#ff2d55" rx="1.5"/>
+<text x="50" y="322" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">CREDS &amp; SECRETS</text>
+<text x="50" y="344" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Hashes, senhas e chaves</text>
+<text x="50" y="366" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">hashcat · john · gitleaks</text>
+<rect x="46" y="378" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="58" y="400" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">hashcat -m 0 hashes.txt</text>
+<text x="58" y="415" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">wordlist.txt</text>
+<rect x="250" y="304" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="268" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">05</text>
+<rect x="320" y="284" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="320" y="284" width="270" height="3" fill="#c81e3f" rx="1.5"/>
+<text x="338" y="322" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">AD / WINDOWS</text>
+<text x="338" y="344" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Movimento lateral em AD</text>
+<text x="338" y="366" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">impacket · bloodhound · kerbrute</text>
+<rect x="334" y="378" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="346" y="400" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">bloodhound-python -d alvo.local</text>
+<rect x="538" y="304" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="556" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">06</text>
+<rect x="608" y="284" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="608" y="284" width="270" height="3" fill="#ff2d55" rx="1.5"/>
+<text x="626" y="322" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">CLOUD &amp; INFRA</text>
+<text x="626" y="344" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">Buckets, clusters e imagens</text>
+<text x="626" y="366" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">s3scanner · cloudfox · trivy</text>
+<rect x="622" y="378" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="634" y="400" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">s3scanner -bucket alvo-bucket</text>
+<rect x="826" y="304" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="844" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">07</text>
+<rect x="896" y="284" width="270" height="162" fill="#0e131d" rx="12" stroke="#242e40" stroke-width="1.4"/>
+<rect x="896" y="284" width="270" height="3" fill="#c81e3f" rx="1.5"/>
+<text x="914" y="322" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" fill="#e6edf3" font-weight="800" letter-spacing="0.6">CODE &amp; SUPPLY CHAIN</text>
+<text x="914" y="344" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11.5" fill="#8b98a9">SAST, segredos e dependencias</text>
+<text x="914" y="366" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#58a6ff">semgrep · bandit · trivy</text>
+<rect x="910" y="378" width="242" height="40" fill="#070a10" rx="8" stroke="#1d2534" stroke-width="1"/>
+<text x="922" y="400" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">semgrep --config p/owasp-top-ten</text>
+<text x="922" y="415" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#3fb950">./app</text>
+<rect x="1114" y="304" width="36" height="18" fill="#ff2d5518" rx="5" stroke="#ff2d5544" stroke-width="1"/>
+<text x="1132" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="9.5" fill="#ff2d55" font-weight="600" text-anchor="middle">08</text>
+</svg>

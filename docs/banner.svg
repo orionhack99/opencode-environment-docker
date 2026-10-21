@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400" role="img" aria-label="OpenCode + Herdr - sandbox de seguranca ofensiva (red team)">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#0a0d14"/><stop offset="0.55" stop-color="#101725"/>
+  <stop offset="1" stop-color="#16121c"/>
+</linearGradient>
+<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+  <stop offset="0" stop-color="#ff2d55" stop-opacity="0.30"/>
+  <stop offset="0.6" stop-color="#ff2d55" stop-opacity="0.07"/>
+  <stop offset="1" stop-color="#ff2d55" stop-opacity="0"/>
+</radialGradient>
+<pattern id="hazard" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+  <rect width="8" height="18" fill="#ff2d55" opacity="0.22"/>
+</pattern>
+<linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+  <stop offset="0" stop-color="#ff2d55" stop-opacity="0.95"/>
+  <stop offset="1" stop-color="#ff2d55" stop-opacity="0"/>
+</linearGradient>
+</defs>
+<rect x="0" y="0" width="1200" height="400" fill="url(#bg)" rx="18"/>
+<g><line x1="0" y1="0" x2="0" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="40" y1="0" x2="40" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="80" y1="0" x2="80" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="120" y1="0" x2="120" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="160" y1="0" x2="160" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="200" y1="0" x2="200" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="240" y1="0" x2="240" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="280" y1="0" x2="280" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="320" y1="0" x2="320" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="360" y1="0" x2="360" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="400" y1="0" x2="400" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="440" y1="0" x2="440" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="480" y1="0" x2="480" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="520" y1="0" x2="520" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="560" y1="0" x2="560" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="600" y1="0" x2="600" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="640" y1="0" x2="640" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="680" y1="0" x2="680" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="720" y1="0" x2="720" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="760" y1="0" x2="760" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="800" y1="0" x2="800" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="840" y1="0" x2="840" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="880" y1="0" x2="880" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="920" y1="0" x2="920" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="960" y1="0" x2="960" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1000" y1="0" x2="1000" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1040" y1="0" x2="1040" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1080" y1="0" x2="1080" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1120" y1="0" x2="1120" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1160" y1="0" x2="1160" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="1200" y1="0" x2="1200" y2="400" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="0" x2="1200" y2="0" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="40" x2="1200" y2="40" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="80" x2="1200" y2="80" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="120" x2="1200" y2="120" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="160" x2="1200" y2="160" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="200" x2="1200" y2="200" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="240" x2="1200" y2="240" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="280" x2="1200" y2="280" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="320" x2="1200" y2="320" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="360" x2="1200" y2="360" stroke="#ffffff" stroke-opacity="0.030"/><line x1="0" y1="400" x2="1200" y2="400" stroke="#ffffff" stroke-opacity="0.030"/></g>
+<ellipse cx="1060" cy="40" rx="430" ry="300" fill="url(#glow)"/>
+<ellipse cx="120" cy="392" rx="360" ry="210" fill="url(#glow)" opacity="0.5"/>
+<rect x="1" y="1" width="1198" height="398" fill="none" rx="17" stroke="#2a3446" stroke-width="2"/>
+<rect x="64" y="58" width="244.69375" height="26" fill="#ff2d5522" rx="13" stroke="#ff2d55" stroke-width="1.4"/>
+<text x="78" y="76" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="10.5" fill="#ff2d55" font-weight="700" letter-spacing="1.7">RED TEAM · OFFENSIVE SECURITY</text>
+<text x="64" y="148" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="46" fill="#e6edf3" font-weight="800" letter-spacing="-0.5">OPENCODE</text>
+<text x="327.515625" y="148" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="40" fill="#ff2d55" font-weight="700">+</text>
+<text x="360.71875" y="148" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="46" fill="#e6edf3" font-weight="800" letter-spacing="-0.5">HERDR</text>
+<text x="64" y="190" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="27" fill="#ff2d55" font-weight="700" letter-spacing="4.5">RED TEAM SANDBOX</text>
+<rect x="64" y="212" width="132" height="3" fill="url(#bar)" rx="1.5"/>
+<text x="64" y="244" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14.5" fill="#8b98a9">Docker · Kali rolling · opencode-pentester</text>
+<text x="64" y="268" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14.5" fill="#8b98a9">Agente de IA isolado, descartável e pronto para o ataque</text>
+<rect x="64" y="300" width="53.54375" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="73" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">RECON</text>
+<rect x="125.54375" y="300" width="39.00625" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="134.54375" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">WEB</text>
+<rect x="172.55" y="300" width="53.54375" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="181.55" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">CREDS</text>
+<rect x="234.09375" y="300" width="104.425" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="243.09375" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">AD / WINDOWS</text>
+<rect x="346.51875" y="300" width="75.35" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="355.51875" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">PIVOTING</text>
+<rect x="429.86875" y="300" width="68.08125" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="438.86875" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">MALWARE</text>
+<rect x="505.95" y="300" width="82.61875" height="26" fill="#ffffff08" rx="6" stroke="#ffffff22" stroke-width="1"/>
+<text x="514.95" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="10.5" fill="#8b98a9" font-weight="600" letter-spacing="0.8">FORENSICS</text>
+<rect x="636" y="52" width="500" height="300" fill="#0b0f17" rx="12" stroke="#2a3446" stroke-width="1.4"/>
+<path d="M 636 64 a 12 12 0 0 1 12 -12 h 476 a 12 12 0 0 1 12 12 v 22 h -500 z" fill="#141b28"/>
+<line x1="636" y1="86" x2="1136" y2="86" stroke="#2a3446"/>
+<circle cx="654" cy="69" r="5" fill="#ff5f56"/>
+<circle cx="670" cy="69" r="5" fill="#ffbd2e"/>
+<circle cx="686" cy="69" r="5" fill="#27c93f"/>
+<text x="886.0" y="73" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="11.5" fill="#8b98a9" text-anchor="middle">kaliuser@sandbox:~/workspace</text>
+<text x="654" y="114" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#ff2d55" font-weight="700">$</text>
+<text x="670" y="114" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#e6edf3">opencode run &quot;audit the target&quot;</text>
+<text x="654" y="143" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#58a6ff" font-weight="700">&gt;</text>
+<text x="670" y="143" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950">scan workspace ............ ok</text>
+<text x="654" y="172" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#ff2d55" font-weight="700">$</text>
+<text x="670" y="172" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#e6edf3">nmap -sV -p- 10.0.0.0/24</text>
+<text x="654" y="201" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#58a6ff" font-weight="700">&gt;</text>
+<text x="670" y="201" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#d29922">22/tcp open ssh  8.2</text>
+<text x="654" y="230" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#ff2d55" font-weight="700">$</text>
+<text x="670" y="230" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#e6edf3">sqlmap -u &quot;$TARGET&quot; --batch --level 3</text>
+<text x="654" y="259" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#58a6ff" font-weight="700">&gt;</text>
+<text x="670" y="259" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950">3 payloads tested</text>
+<text x="654" y="288" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#ff2d55" font-weight="700">$</text>
+<text x="670" y="288" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#e6edf3">./opencode-pentester/install.sh</text>
+<text x="654" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#58a6ff" font-weight="700">&gt;</text>
+<text x="670" y="317" font-family="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace" font-size="13" fill="#3fb950">75 tools ready</text>
+<rect x="0" y="386" width="1200" height="14" fill="url(#hazard)" opacity="0.55"/>
+<rect x="0" y="386" width="1200" height="14" fill="#0a0d14" opacity="0.55"/>
+</svg>

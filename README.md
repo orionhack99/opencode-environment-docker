@@ -5,6 +5,10 @@
 [![Base](https://img.shields.io/badge/base-kali--rolling-363636)](https://www.kali.org/)
 [![Framework](https://img.shields.io/badge/opencode--pentester-blue)](https://github.com/humaidhahm/opencode-pentester)
 
+<p align="center">
+  <img src="docs/banner.svg" alt="OpenCode + Herdr — sandbox de segurança ofensiva (red team)" width="100%">
+</p>
+
 Ambiente **isolado em Docker** para rodar um agente de IA de segurança ofensiva
 com um painel de gerenciamento de terminais — com o framework
 [opencode-pentester](https://github.com/humaidhahm/opencode-pentester) já
@@ -34,6 +38,7 @@ OpenCode para um alvo, ele ataca, e o estrago fica dentro do container.
   - [Uso](#uso)
   - [Atalhos do Herdr](#3-atalhos-do-herdr)
   - [Instalando ferramentas de pentest](#instalando-ferramentas-de-pentest)
+  - [🩸 Red team: toolkit e fluxos ofensivos](#-red-team-toolkit-e-fluxos-ofensivos)
   - [Volumes e persistência](#volumes-e-persistência)
   - [🔒 Segurança do sandbox](#-segurança-do-sandbox)
   - [Rede](#rede)
@@ -48,6 +53,7 @@ OpenCode para um alvo, ele ataca, e o estrago fica dentro do container.
   - [Usage](#usage)
   - [Herdr shortcuts](#3-herdr-shortcuts)
   - [Installing pentest tooling](#installing-pentest-tooling)
+  - [🩸 Red team: toolkit and offensive playbooks](#-red-team-toolkit-and-offensive-playbooks)
   - [Volumes and persistence](#volumes-and-persistence)
   - [🔒 Sandbox security](#-sandbox-security)
   - [Network](#network)
@@ -450,6 +456,60 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 > ⚠️ `kali-linux-meta` / `kali-tools-full` instalam **toda** a suíte do Kali
 > (dezenas de GB). Prefira listas curtas e sob medida — ou use o
 > `install.sh` do `opencode-pentester`, que faz a curadoria por você.
+
+## 🩸 Red team: toolkit e fluxos ofensivos
+
+O `install.sh` do `opencode-pentester` faz a curadoria de **~75 ferramentas**
+de pentest e as organiza por domínio ofensivo. Com elas, o agente conduz um
+teste de ponta a ponta — do reconhecimento ao relatório:
+
+<p align="center">
+  <img src="docs/redteam.svg" alt="Domínios de segurança ofensiva e ferramentas por categoria" width="100%">
+</p>
+
+| # | Domínio | Ferramentas | Comando de partida |
+|---|---|---|---|
+| 01 | Recon & OSINT | `amass`, `subfinder`, `gau` | `amass enum -d alvo.com` |
+| 02 | Network & Scan | `nmap`, `masscan`, `smap` | `nmap -sV -p- 10.0.0.0/24` |
+| 03 | Web & App | `ffuf`, `gobuster`, `nikto` | `ffuf -u alvo/FUZZ -w wordlist.txt` |
+| 04 | Exploit Validation | `sqlmap`, `nuclei`, `dalfox` | `sqlmap -u "https://alvo?id=1" --batch` |
+| 05 | Creds & Secrets | `hashcat`, `john`, `gitleaks` | `hashcat -m 0 hashes.txt wordlist.txt` |
+| 06 | AD / Windows | `impacket`, `bloodhound`, `kerbrute` | `bloodhound-python -d alvo.local` |
+| 07 | Cloud & Infra | `s3scanner`, `cloudfox`, `trivy` | `s3scanner -bucket alvo-bucket` |
+| 08 | Code & Supply Chain | `semgrep`, `bandit`, `trivy` | `semgrep --config p/owasp-top-ten ./app` |
+
+> ⚠️ **Nada disso vem pré-instalado na imagem.** As ferramentas entram em
+> runtime pelo `install.sh` do framework (veja
+> [Rodando uma auditoria](#5-rodando-uma-auditoria-com-o-opencode-pentester))
+> e somem quando o container é recriado — grave-as na imagem se quiser
+> persistir.
+
+### Como conduzir um teste
+
+1. **Recon** — `amass`/`subfinder` enumeram subdomínios; `gau`/`waybackurls`
+   colecionam URLs antigas.
+2. **Mapeamento** — `nmap`/`masscan` levantam portas e serviços; `dnsx`
+   resolve subdomínios.
+3. **Enumeração web** — `ffuf`/`gobuster`/`dirsearch` acham rotas e arquivos;
+   `katana` rastreia o site em profundidade.
+4. **Validação** — `nuclei`/`dalfox`/`jaeles` confirmam CVE, XSS e templates
+   exposures; `sqlmap` confirma SQLi.
+5. **Credenciais** — `hashcat`/`john` quebram hashes; `hydra` testa serviços;
+   `gitleaks`/`trivy` caçam segredos no código.
+6. **Movimento lateral** — `impacket`/`bloodhound`/`certipy-ad`/`lsassy`
+   exploram o Active Directory.
+7. **Validação no navegador e evidência** — `scoutsuite`/`playwright`
+   reproduzem o achado; findings e relatório ficam no banco do framework.
+
+Exemplo de prompt (sempre com autorização explícita):
+
+```bash
+opencode run "Tenho autorização para testar https://alvo.com. Use opencode-pentester. Orçamento de tempo: 120 minutos."
+```
+
+> ⚠️ **Somente em alvos autorizados.** Testar sem autorização é ilegal na
+> maior parte das jurisdições (no Brasil: Lei 12.737/2012). O procedimento
+> completo está em [Segurança do sandbox](#-segurança-do-sandbox).
 
 ## Volumes e persistência
 
@@ -1275,6 +1335,59 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 > ⚠️ `kali-linux-meta` / `kali-tools-full` install the **entire** Kali suite
 > (tens of GB). Prefer short, purpose-built lists — or use the
 > `opencode-pentester` `install.sh`, which curates them for you.
+
+## 🩸 Red team: toolkit and offensive playbooks
+
+The `opencode-pentester` `install.sh` curates **~75 pentest tools** and groups
+them by offensive domain. With them, the agent runs an end-to-end engagement —
+from reconnaissance to the report:
+
+<p align="center">
+  <img src="docs/redteam.svg" alt="Offensive security domains and the tools behind each one" width="100%">
+</p>
+
+| # | Domain | Tools | Starting command |
+|---|---|---|---|
+| 01 | Recon & OSINT | `amass`, `subfinder`, `gau` | `amass enum -d alvo.com` |
+| 02 | Network & Scan | `nmap`, `masscan`, `smap` | `nmap -sV -p- 10.0.0.0/24` |
+| 03 | Web & App | `ffuf`, `gobuster`, `nikto` | `ffuf -u alvo/FUZZ -w wordlist.txt` |
+| 04 | Exploit Validation | `sqlmap`, `nuclei`, `dalfox` | `sqlmap -u "https://alvo?id=1" --batch` |
+| 05 | Creds & Secrets | `hashcat`, `john`, `gitleaks` | `hashcat -m 0 hashes.txt wordlist.txt` |
+| 06 | AD / Windows | `impacket`, `bloodhound`, `kerbrute` | `bloodhound-python -d alvo.local` |
+| 07 | Cloud & Infra | `s3scanner`, `cloudfox`, `trivy` | `s3scanner -bucket alvo-bucket` |
+| 08 | Code & Supply Chain | `semgrep`, `bandit`, `trivy` | `semgrep --config p/owasp-top-ten ./app` |
+
+> ⚠️ **None of it ships pre-installed.** The tools land at runtime through the
+> framework's `install.sh` (see
+> [Running an audit](#5-running-an-audit-with-opencode-pentester)) and are gone
+> when the container is recreated — bake them into the image to keep them.
+
+### How to run an engagement
+
+1. **Recon** — `amass`/`subfinder` enumerate subdomains; `gau`/`waybackurls`
+   collect old URLs.
+2. **Mapping** — `nmap`/`masscan` raise ports and services; `dnsx` resolves
+   subdomains.
+3. **Web enumeration** — `ffuf`/`gobuster`/`dirsearch` find routes and files;
+   `katana` crawls the site deeply.
+4. **Validation** — `nuclei`/`dalfox`/`jaeles` confirm CVEs, XSS and template
+   exposures; `sqlmap` confirms SQLi.
+5. **Credentials** — `hashcat`/`john` crack hashes; `hydra` tests services;
+   `gitleaks`/`trivy` hunt secrets in the code.
+6. **Lateral movement** — `impacket`/`bloodhound`/`certipy-ad`/`lsassy` work
+   through Active Directory.
+7. **Browser validation and evidence** — `scoutsuite`/`playwright` reproduce
+   the finding; findings and the report live in the framework's database.
+
+Example prompt (always with explicit authorization):
+
+```bash
+opencode run "I am authorized to test https://alvo.com. Use opencode-pentester. Time budget: 120 minutes."
+```
+
+> ⚠️ **Authorized targets only.** Testing without permission is illegal in most
+> jurisdictions (in Brazil: Law 12.737/2012). The full procedure is in
+> [Sandbox security](#-sandbox-security).
 
 ## Volumes and persistence
 
