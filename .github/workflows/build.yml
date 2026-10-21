@@ -147,6 +147,15 @@ jobs:
             echo "framework em runtime: OK"
           '
 
+      - name: Prepara a pasta de trabalho do sandbox
+        run: |
+          set -euo pipefail
+          # O Compose monta ./workspace dentro do container. Ela precisa
+          # existir e pertencer ao uid 1000 (o usuario do container), senao
+          # o Docker cria como root e o agente nao consegue gravar.
+          mkdir -p workspace
+          sudo chown -R 1000:1000 workspace
+
       - name: Smoke test (usuario, sudo, binarios e workspace)
         run: |
           set -euo pipefail
@@ -182,6 +191,9 @@ jobs:
             echo "--- workspace (bind mount) ---"
             pwd
             ls -1 . | head -n 5
+            touch .ci-write-test && rm -f .ci-write-test \
+              || { echo "::error::workspace nao gravavel pelo usuario do container"; exit 1; }
+            echo "workspace: OK"
           '
 
       - name: Herdr sobe como servidor headless

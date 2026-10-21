@@ -70,8 +70,12 @@ ENV OPENCODE_PENTESTER_DIR=/opt/opencode-pentester
 # 7. EXPORTAR O PATH: Corrigido apontando apenas para as pastas do kaliuser
 ENV PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:${PATH}"
 
-# 8. Correção do Erro: Grava no .bashrc do KALIUSER (e não do root)
-RUN echo 'export PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:$PATH"' >> ${HOME}/.bashrc
+# 8. PATH também no ~/.profile
+# O /etc/profile (lido por shells de login, como `bash -lc`) redefine o PATH
+# e descarta o ENV PATH da imagem — sem esta linha, `opencode` e `herdr`
+# somem dentro de `bash -lc`. O ~/.bashrc cobre o shell interativo.
+RUN echo 'export PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:$PATH"' >> ${HOME}/.profile \
+    && echo 'export PATH="${HOME}/.local/bin:${HOME}/.opencode/bin:$PATH"' >> ${HOME}/.bashrc
 
 
 

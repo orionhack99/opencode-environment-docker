@@ -1,9 +1,15 @@
 # Contexto de build: só o que é realmente necessário para a imagem.
+# (o Dockerfile não faz COPY/ADD de nada — o contexto pode ser mínimo)
 .git
 .gitignore
 .github
 LICENSE
 README.md
+
+# O próprio sandbox não entra no container
+Dockerfile
+docker-compose.yml
+workspace/
 
 # Configuração local do Compose (pode conter segredos)
 .env

@@ -27,6 +27,9 @@ exploits/
 # container dentro do workspace (bind mount)
 opencode-pentester
 
+# Pasta de trabalho montada no container (o alvo dos testes)
+workspace/
+
 # Editores e SO
 .idea/
 .vscode/

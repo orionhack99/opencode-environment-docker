@@ -50,8 +50,14 @@ services:
       HERDR_DISABLE_SOUND: "1"
 
     volumes:
-      # O projeto atual dentro do container. É aqui que o agente trabalha.
-      - .:/workspace
+      # Pasta de trabalho do agente — e só isto que vem do host.
+      # Não é o repo do sandbox: é uma pasta dedicada, vazia por padrão,
+      # onde você (ou um -v no `compose run`) coloca o alvo do teste.
+      #
+      # Crie-a uma vez com a posse do usuário do container (uid 1000),
+      # senão o Docker cria como root e o agente não consegue gravar:
+      #   mkdir -p workspace && sudo chown -R 1000:1000 workspace
+      - ./workspace:/workspace
 
       # Persistência entre recriações do container (volumes nomeados):
       #   opencode-config → /root/.config/opencode      (config do opencode)

@@ -13,7 +13,7 @@ clonado dentro da imagem.
 | Componente | O que é |
 |---|---|
 | **Kali Linux rolling** | Base com o repositório Kali configurado — **sem** ferramentas pré-instaladas |
-| **OpenCode** | Agente de IA que lê, escreve e executa comandos no seu projeto |
+| **OpenCode** | Agente de IA que lê, escreve e executa comandos no alvo montado em `/workspace` |
 | **Herdr** | Painel TUI de *workspaces / tabs / panes* para orquestrar vários agentes |
 | **opencode-pentester** | Framework de pentest/auditoria (12 agentes, 69 categorias de ataque, 17 auditorias OWASP) clonado no build |
 | **kaliuser** | Usuário **não-root** do container, com `sudo` sem senha para as tools de pentest |
@@ -81,7 +81,10 @@ cd opencode-environment-docker
 # 1. Constrói a imagem (primeira vez leva alguns minutos)
 docker compose build
 
-# 2. Abre um shell interativo dentro do sandbox
+# 2. Cria a pasta de trabalho (o alvo dos testes) com a posse do container
+mkdir -p workspace && sudo chown -R 1000:1000 workspace
+
+# 3. Abre um shell interativo dentro do sandbox
 docker compose run --rm sandbox
 ```
 
@@ -92,7 +95,19 @@ opencode   # abre o agente de IA em /workspace
 herdr      # abre o painel de workspaces/panes
 ```
 
+> Antes do primeiro prompt, configure um provedor de modelo (API key ou modelo
+> local) — **sem login**. Veja
+> [Modelo e provedor](#1-modelo-e-provedor-sem-login).
+
 Sai com `Ctrl+D` (ou `exit`).
+
+> O container **não** recebe o repo do sandbox. O que entra é a pasta
+> `./workspace` (vazia por padrão) — é lá que o agente trabalha. Para
+> pentest contra outro projeto, monte o alvo na hora:
+>
+> ```bash
+> docker compose run --rm -v /caminho/do/alvo:/workspace/alvo sandbox
+> ```
 
 O build faz três coisas: baixa o **Kali rolling**, instala o **OpenCode** e o
 **Herdr** e clona o **opencode-pentester** em `/opt/opencode-pentester`.
@@ -110,7 +125,7 @@ docker compose run --rm sandbox opencode
 docker compose run --rm sandbox herdr
 
 # Mandar um prompt sem TUI (automatização / scripts)
-docker compose run --rm sandbox opencode run "Explique a estrutura deste repositório"
+docker compose run --rm sandbox opencode run "Explique o que há em /workspace"
 
 # Container em background
 docker compose up -d sandbox
@@ -124,14 +139,14 @@ docker compose down -v
 
 | Caminho dentro do container | Conteúdo |
 |---|---|
-| `/workspace` | Diretório de trabalho do agente (recebe o bind mount do seu projeto) |
+| `/workspace` | Diretório de trabalho do agente — bind mount de `./workspace` (pasta dedicada, **vazia** por padrão) |
 | `/opt/opencode-pentester` | Framework **clonado durante o build** (fora do bind mount, sempre disponível) |
 | `/workspace/opencode-pentester` | Link simbólico para `/opt/opencode-pentester`, criado na subida do container |
 | `/home/kaliuser/.opencode/bin/opencode` | Binário do OpenCode (no `PATH` da imagem) |
 | `/home/kaliuser/.local/bin/herdr` | Binário do Herdr (no `PATH` da imagem) |
 | `/home/kaliuser/.config/herdr/config.toml` | Config do Herdr — **você precisa criar** (veja abaixo) |
 | `/home/kaliuser/.config/opencode/plugins/` | Plugin do Herdr — instalado com `herdr integration install opencode` |
-| `/home/kaliuser/.local/share/opencode` | `auth.json`, banco, sessões e logs do OpenCode |
+| `/home/kaliuser/.local/share/opencode` | `auth.json` (só se você usar o provedor `opencode.ai`), banco, sessões e logs do OpenCode |
 
 ### Usuário `kaliuser` e `sudo`
 
@@ -153,11 +168,10 @@ privilégios (raw sockets, `tcpdump`, criação de interfaces). Na prática,
 **o agente consegue virar root dentro do container** — a fronteira de
 segurança é o container, não o usuário.
 
-Consequência prática: os arquivos criados no bind mount belong ao uid `1000`
-do container. Em Linux, esse é o uid da maioria dos usuários de desktop, então
-costuma "dar certo"; em macOS/Windows (Docker Desktop) as permissões são
-virtualizadas e não há problema. Se aparecer `permission denied`, ajuste no
-host: `sudo chown -R $(id -u) .`.
+Consequência prática: os arquivos criados no bind mount (`./workspace`) ficam
+com o uid `1000` do container. Por isso a pasta precisa ser criada com essa
+posse: `mkdir -p workspace && sudo chown -R 1000:1000 workspace`. Se aparecer
+`permission denied`, ajuste no host: `sudo chown -R $(id -u) workspace`.
 
 ### Onde fica o `opencode-pentester`
 
@@ -167,10 +181,10 @@ O framework é clonado **durante o build** em:
 /opt/opencode-pentester
 ```
 
-Ele fica **fora** de `/workspace` de propósito: o Compose monta a sua pasta do
-host sobre `/workspace` (bind mount) e cobriria qualquer arquivo que estivesse
-ali, deixando o framework invisível em tempo de execução — era exatamente o
-que acontecia antes desta correção.
+Ele fica **fora** de `/workspace` de propósito: o Compose monta `./workspace`
+sobre `/workspace` (bind mount) e cobriria qualquer arquivo que estivesse ali,
+deixando o framework invisível em tempo de execução — era exatamente o que
+acontecia antes desta correção.
 
 Na subida do container, o Compose cria um link simbólico dentro do workspace,
 para o agente encontrar o framework onde trabalha:
@@ -238,19 +252,51 @@ OpenCode depois de instalar.
 
 ## Uso
 
-### 1. Login do OpenCode
+### 1. Modelo e provedor (sem login)
 
-O OpenCode precisa de um provedor de modelo. Na primeira execução:
+**O OpenCode não exige login.** Ele só precisa de um provedor de modelo — e
+você escolhe o que usar:
+
+- **API key** de um provedor (Anthropic, OpenAI, Google, OpenRouter…);
+- **modelo local** (Ollama, LM Studio) — sem chave e sem internet.
+
+A configuração global fica em `~/.config/opencode/opencode.json` — dentro do
+container, `/home/kaliuser/.config/opencode/opencode.json`. Para criar:
 
 ```bash
-docker compose run --rm sandbox opencode auth login
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  cat > ~/.config/opencode/opencode.json <<JSON
+{
+  "\$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-5",
+  "providers": {
+    "anthropic": { "settings": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
+  }
+}
+JSON
+'
 ```
 
-Ou, dentro da TUI do OpenCode, use o comando `/connect`.
-O token fica salvo em `/home/kaliuser/.local/share/opencode/auth.json` — num
-volume nomeado, **sobrevive à recriação do container**; sem volume (configuração
-atual), ele é **perdido** a cada `docker compose run --rm`. Veja
-[Volumes e persistência](#volumes-e-persistência).
+O `{env:VARIAVEL}` é expandido na hora — o segredo não fica gravado no
+arquivo. Passe a chave para o container na execução:
+
+```bash
+docker compose run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" sandbox
+```
+
+Como a config vive na camada do container, ela é **perdida a cada recriação**
+— monte um volume se quiser preservá-la (veja
+[Volumes e persistência](#volumes-e-persistência)).
+
+Dentro da TUI, `/models` lista e troca o modelo; `/connect` adiciona
+provedores.
+
+> **Login é só para o `opencode.ai`.** O `opencode auth login` (ou o
+> `/connect` da TUI) grava um token em
+> `/home/kaliuser/.local/share/opencode/auth.json` — e, sem volume nomeado,
+> esse arquivo é **perdido** a cada `docker compose run --rm`. Veja
+> [Volumes e persistência](#volumes-e-persistência).
 
 ### 2. Organizando o trabalho com o Herdr
 
@@ -409,9 +455,9 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 
 | Tipo | Host / Origem | No container | O que guarda |
 |---|---|---|---|
-| Bind mount | `.` (a pasta do projeto) | `/workspace` | O código em que o agente trabalha |
+| Bind mount | `./workspace` (pasta dedicada, ignorada pelo git) | `/workspace` | O alvo em que o agente trabalha |
 | Volume nomeado | `opencode-config` | `/home/kaliuser/.config/opencode` | Config do OpenCode |
-| Volume nomeado | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json`, banco, sessões, logs |
+| Volume nomeado | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json` (se houver login), banco, sessões, logs |
 | Volume nomeado | `opencode-state` | `/home/kaliuser/.local/state/opencode` | Registro do serviço em background |
 | Volume nomeado | `herdr-config` | `/home/kaliuser/.config/herdr` | `config.toml` do Herdr |
 | Volume nomeado | `herdr-state` | `/home/kaliuser/.herdr` | Worktrees, sessão e estado do Herdr |
@@ -419,12 +465,16 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 > ⚠️ **Estado atual:** as linhas de volumes nomeados estão **comentadas** no
 > `docker-compose.yml` — e ainda apontam para `/root/...`, caminho da versão
 > anterior, quando o container rodava como root. Na prática, hoje existe
-> **apenas o bind mount `.:/workspace`** — config, login e sessões vivem na
-> camada gravável do container e são perdidos a cada recriação. Os volumes
-> declarados no fim do arquivo existem, mas não são montados em lugar nenhum.
+> **apenas o bind mount `./workspace:/workspace`** — config e sessões
+> vivem na camada gravável do container e são perdidos a cada recriação. Os
+> volumes declarados no fim do arquivo existem, mas não são montados em lugar
+> nenhum.
 >
 > Se você descomentar as linhas do Compose, ajuste os caminhos para
 > `/home/kaliuser/...` (é onde o usuário `kaliuser` realmente grava).
+>
+> A pasta `./workspace` precisa existir e ter a posse do uid `1000`:
+> `mkdir -p workspace && sudo chown -R 1000:1000 workspace`.
 
 ### Como persistir sem editar o Compose
 
@@ -469,8 +519,9 @@ docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sand
 Os volumes nomeados são **preferidos a bind mounts do `~`** porque funcionam
 igual em Linux, macOS e Windows, sem problemas de permissão de arquivo.
 
-⚠️ O bind mount `.:/workspace` dá **acesso de escrita ao agente sobre a sua
-pasta**. Use um diretório dedicado para os alvos, não a sua pasta pessoal.
+⚠️ O bind mount `./workspace:/workspace` dá **acesso de escrita ao agente
+sobre essa pasta**. É proposital: é uma pasta dedicada, criada só para os
+alvos — o repo do sandbox e a sua pasta pessoal **não** entram no container.
 
 Recomeçar do zero (apaga containers e volumes):
 
@@ -492,7 +543,7 @@ garante **dentro** do container:
 | Sem `privileged` | Sem escape de container |
 | Sem `network_mode: host` | Rede `bridge` padrão |
 | Sem `docker.sock` | O container não controla o host |
-| Bind mount único (`.:/workspace`) | Escrita restrita ao workspace |
+| Bind mount único (`./workspace:/workspace`) | Escrita restrita à pasta de trabalho — o repo do sandbox não entra no container |
 | Rootfs gravável | O container pode ser alterado em runtime (efêmero) |
 | Limites de recursos | `pids_limit=4096`, `mem_limit=8g` e `cpus=4` — tetos (não reservas), ajustáveis por `SANDBOX_PIDS_LIMIT`, `SANDBOX_MEM_LIMIT` e `SANDBOX_CPUS` |
 
@@ -591,8 +642,9 @@ laboratório e pesquisa de segurança.
   ao OpenCode e mantenha o bind mount restrito a uma pasta de trabalho.
 - **Não commite segredos.** O `.gitignore` exclui `.env`, chaves e `auth.json`,
   mas confira `git status` antes de `git push`.
-- **`auth.json` guarda tokens.** Hoje ele vive na camada do container e some
-  com ele; se você montar volumes, trate-os como credenciais:
+- **`auth.json` guarda tokens** (ele só existe se você usar o provedor
+  hospedado `opencode.ai`). Hoje vive na camada do container e some com ele;
+  se você montar volumes, trate-os como credenciais:
   `docker compose down -v` quando não precisar mais.
 - **O `opencode-pentester` embutido tem termos próprios** (veja o
   [DISCLAIMER.md](https://github.com/humaidhahm/opencode-pentester/blob/main/DISCLAIMER.md)
@@ -601,7 +653,8 @@ laboratório e pesquisa de segurança.
 ## Rede
 
 O container usa a rede `bridge` padrão do Docker, com **saída para a internet**
-(necessária para o login do OpenCode e para alcançar os alvos). Veja as opções
+(necessária para chamar a API do provedor de modelo e para alcançar os alvos).
+Veja as opções
 de isolamento acima.
 
 ## Atualizando
@@ -670,8 +723,10 @@ docker compose run --rm sandbox bash -lc 'stty rows 50 cols 200; exec bash'
 <details>
 <summary><b>"opencode: command not found" ou "herdr: command not found"</b></summary>
 
-O `PATH` da imagem já inclui `~/.opencode/bin` e `~/.local/bin`. Se o shell
-não herdou o ambiente (por exemplo, um `sh` sem login), exporte manualmente:
+O `PATH` da imagem já inclui `~/.opencode/bin` e `~/.local/bin`, e o
+`~/.profile` garante isso também em shells de login (`bash -lc` — o
+`/etc/profile` recria o PATH e descartaria o do `ENV`). Se ainda assim o
+binário não for encontrado (ex.: um `sh` sem login), exporte manualmente:
 
 ```bash
 export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
@@ -727,9 +782,15 @@ Se preferir o framework dentro da pasta do host, copie a partir da imagem
 <details>
 <summary><b>"permission denied" ao gravar no workspace</b></summary>
 
-O container roda como `kaliuser` (uid `1000`). Os arquivos criados no host
-ficam com esse uid. Ajuste as permissões da pasta hospedeira
-(`sudo chown -R $(id -u) .`).
+O container roda como `kaliuser` (uid `1000`) e a pasta `./workspace` é
+montada nele. Se o Docker a criou sozinho, ela fica com dono `root` — corrija
+uma vez no host:
+
+```bash
+sudo chown -R 1000:1000 workspace
+```
+
+Para o seu usuário local (em vez do uid do container): `sudo chown -R $(id -u) workspace`.
 </details>
 
 <details>
@@ -797,6 +858,7 @@ docker compose build --no-cache
 ├── .github/workflows/build.yml # CI: build + smoke test + verificação da postura de segurança
 ├── .dockerignore               # contexto de build enxuto
 ├── .gitignore                  # segredos e artefatos
+├── workspace/                  # pasta de trabalho (ignorada pelo git) — o alvo dos testes
 ├── LICENSE                     # MIT
 └── README.md
 ```
@@ -805,7 +867,7 @@ E dentro do container:
 
 ```
 /workspace
-├── (bind mount) .              # o seu projeto
+├── (bind mount) ./workspace    # pasta dedicada: o alvo dos testes
 └── opencode-pentester -> /opt/opencode-pentester   # link criado na subida
 
 /opt
@@ -816,7 +878,7 @@ E dentro do container:
 ├── .local/bin/herdr            # binário do Herdr
 ├── .config/opencode/           # config do OpenCode + plugin do Herdr
 ├── .config/herdr/config.toml   # config do Herdr
-├── .local/share/opencode/      # auth.json, banco, sessões e logs
+├── .local/share/opencode/      # auth.json (se houver login), banco, sessões e logs
 └── .herdr/                     # worktrees, sessão e estado do Herdr
 ```
 
@@ -844,7 +906,10 @@ cd opencode-environment-docker
 # 1. Build the image (first run takes a few minutes)
 docker compose build
 
-# 2. Open an interactive shell inside the sandbox
+# 2. Create the working folder (the pentest target) owned by the container user
+mkdir -p workspace && sudo chown -R 1000:1000 workspace
+
+# 3. Open an interactive shell inside the sandbox
 docker compose run --rm sandbox
 ```
 
@@ -855,7 +920,19 @@ opencode   # start the AI agent in /workspace
 herdr      # open the workspace/pane dashboard
 ```
 
+> Before the first prompt, set up a model provider (API key or local model) —
+> **no login needed**. See
+> [Model and provider](#1-model-and-provider-no-login).
+
 Exit with `Ctrl+D` (or `exit`).
+
+> The container does **not** get the sandbox repo. What comes in is the
+> `./workspace` folder (empty by default) — that is where the agent works. To
+> pentest another project, mount the target on the fly:
+>
+> ```bash
+> docker compose run --rm -v /path/to/target:/workspace/target sandbox
+> ```
 
 The build does three things: pulls **Kali rolling**, installs **OpenCode** and
 **Herdr** and clones **opencode-pentester** into
@@ -874,7 +951,7 @@ docker compose run --rm sandbox opencode
 docker compose run --rm sandbox herdr
 
 # Headless prompt (automation / scripts)
-docker compose run --rm sandbox opencode run "Explain the structure of this repository"
+docker compose run --rm sandbox opencode run "Explain what is in /workspace"
 
 # Background container
 docker compose up -d sandbox
@@ -888,14 +965,14 @@ docker compose down -v
 
 | Path inside the container | Contents |
 |---|---|
-| `/workspace` | Agent working directory (receives the bind mount of your project) |
+| `/workspace` | Agent working directory — bind mount of `./workspace` (a dedicated folder, **empty** by default) |
 | `/opt/opencode-pentester` | Framework **cloned at build time** (outside the bind mount, always available) |
 | `/workspace/opencode-pentester` | Symlink to `/opt/opencode-pentester`, created when the container starts |
 | `/home/kaliuser/.opencode/bin/opencode` | OpenCode binary (already on the image `PATH`) |
 | `/home/kaliuser/.local/bin/herdr` | Herdr binary (already on the image `PATH`) |
 | `/home/kaliuser/.config/herdr/config.toml` | Herdr config — **you have to create it** (see below) |
 | `/home/kaliuser/.config/opencode/plugins/` | Herdr plugin — installed with `herdr integration install opencode` |
-| `/home/kaliuser/.local/share/opencode` | `auth.json`, database, sessions and logs |
+| `/home/kaliuser/.local/share/opencode` | `auth.json` (only if you use the `opencode.ai` provider), database, sessions and logs |
 
 ### The `kaliuser` user and `sudo`
 
@@ -916,11 +993,11 @@ sockets, `tcpdump`, interface creation). In practice **the agent can become
 root inside the container** — the security boundary is the container, not the
 user.
 
-Practical consequence: files created in the bind mount belong to uid `1000`
-inside the container. On Linux that is the uid of most desktop users, so it
-usually "just works"; on macOS/Windows (Docker Desktop) permissions are
-virtualized and there is no issue. If you hit `permission denied`, fix it on
-the host: `sudo chown -R $(id -u) .`.
+Practical consequence: files created in the bind mount (`./workspace`) end up
+owned by uid `1000` inside the container. That is why the folder needs to be
+created with that ownership: `mkdir -p workspace && sudo chown -R 1000:1000
+workspace`. If you hit `permission denied`, fix it on the host: `sudo chown -R
+$(id -u) workspace`.
 
 ### Where `opencode-pentester` lives
 
@@ -930,10 +1007,10 @@ The framework is cloned **at build time** into:
 /opt/opencode-pentester
 ```
 
-It lives **outside** `/workspace` on purpose: Compose mounts your host folder
-over `/workspace` (bind mount), which would cover anything sitting there and
-leave the framework invisible at runtime — exactly what used to happen before
-this fix.
+It lives **outside** `/workspace` on purpose: Compose mounts `./workspace` over
+`/workspace` (bind mount), which would cover anything sitting there and leave
+the framework invisible at runtime — exactly what used to happen before this
+fix.
 
 When the container starts, Compose creates a symlink inside the workspace so
 the agent finds the framework exactly where it works:
@@ -1000,19 +1077,51 @@ OpenCode afterwards.
 
 ## Usage
 
-### 1. OpenCode login
+### 1. Model and provider (no login)
 
-OpenCode needs a model provider. On first run:
+**OpenCode does not require a login.** It only needs a model provider — and
+you pick the one you want:
+
+- an **API key** from a provider (Anthropic, OpenAI, Google, OpenRouter…);
+- a **local model** (Ollama, LM Studio) — no key and no internet.
+
+The global config lives in `~/.config/opencode/opencode.json` — inside the
+container, `/home/kaliuser/.config/opencode/opencode.json`. To create it:
 
 ```bash
-docker compose run --rm sandbox opencode auth login
+docker compose run --rm sandbox bash -lc '
+  mkdir -p ~/.config/opencode
+  cat > ~/.config/opencode/opencode.json <<JSON
+{
+  "\$schema": "https://opencode.ai/config.json",
+  "model": "anthropic/claude-sonnet-4-5",
+  "providers": {
+    "anthropic": { "settings": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
+  }
+}
+JSON
+'
 ```
 
-Or, from inside the OpenCode TUI, use the `/connect` command.
-The token is stored in `/home/kaliuser/.local/share/opencode/auth.json` — in a
-named volume it **survives container recreation**; without a volume (the
-current setup) it is **lost** on every `docker compose run --rm`. See
-[Volumes and persistence](#volumes-and-persistence).
+`{env:VARIABLE}` is expanded at runtime — the secret is never written to the
+file. Pass the key to the container on the way in:
+
+```bash
+docker compose run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" sandbox
+```
+
+Since the config lives in the container layer, it is **lost on every
+recreation** — mount a volume if you want to keep it (see
+[Volumes and persistence](#volumes-and-persistence)).
+
+Inside the TUI, `/models` lists and switches models; `/connect` adds
+providers.
+
+> **Login is only for `opencode.ai`.** `opencode auth login` (or `/connect`
+> in the TUI) stores a token in
+> `/home/kaliuser/.local/share/opencode/auth.json` — and without a named
+> volume that file is **lost** on every `docker compose run --rm`. See
+> [Volumes and persistence](#volumes-and-persistence).
 
 ### 2. Driving the work with Herdr
 
@@ -1171,9 +1280,9 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 
 | Type | Host / Source | In container | What it stores |
 |---|---|---|---|
-| Bind mount | `.` (the project folder) | `/workspace` | The code the agent works on |
+| Bind mount | `./workspace` (dedicated folder, git-ignored) | `/workspace` | The target the agent works on |
 | Named volume | `opencode-config` | `/home/kaliuser/.config/opencode` | OpenCode config |
-| Named volume | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json`, database, sessions, logs |
+| Named volume | `opencode-data` | `/home/kaliuser/.local/share/opencode` | `auth.json` (if you logged in), database, sessions, logs |
 | Named volume | `opencode-state` | `/home/kaliuser/.local/state/opencode` | Background service registration |
 | Named volume | `herdr-config` | `/home/kaliuser/.config/herdr` | Herdr `config.toml` |
 | Named volume | `herdr-state` | `/home/kaliuser/.herdr` | Worktrees, session and Herdr state |
@@ -1181,13 +1290,16 @@ docker compose -f docker-compose.yml -f docker-compose.tools.yml run --rm sandbo
 > ⚠️ **Current state:** the named-volume lines are **commented out** in
 > `docker-compose.yml` — and they still point to `/root/...`, the path from the
 > previous version, when the container ran as root. In practice there is
-> **only the `.:/workspace` bind mount** today — config, login and sessions
-> live in the container's writable layer and are lost on every recreation. The
-> volumes declared at the bottom of the file exist, but are not mounted
-> anywhere.
+> **only the `./workspace:/workspace` bind mount** today — config and
+> sessions live in the container's writable layer and are lost on every
+> recreation. The volumes declared at the bottom of the file exist, but are
+> not mounted anywhere.
 >
 > If you uncomment those lines, fix the paths to `/home/kaliuser/...` (that is
 > where the `kaliuser` user actually writes).
+>
+> The `./workspace` folder must exist and be owned by uid `1000`:
+> `mkdir -p workspace && sudo chown -R 1000:1000 workspace`.
 
 ### How to persist without editing Compose
 
@@ -1232,8 +1344,10 @@ docker compose -f docker-compose.yml -f docker-compose.persist.yml run --rm sand
 Named volumes are **preferred over bind-mounting `~`** because they behave the
 same on Linux, macOS and Windows, with no file permission quirks.
 
-⚠️ The `.:/workspace` bind mount gives the agent **write access to your
-folder**. Use a dedicated directory for targets, not your personal one.
+⚠️ The `./workspace:/workspace` bind mount gives the agent **write access to
+that folder**. That is intentional: it is a dedicated folder created just for
+the targets — the sandbox repo and your personal folders **do not** enter the
+container.
 
 Start completely fresh (drops containers and volumes):
 
@@ -1255,7 +1369,7 @@ configuration guarantees **inside** the container:
 | No `privileged` | No container escape |
 | No `network_mode: host` | Default `bridge` network |
 | No `docker.sock` | The container cannot control the host |
-| Single bind mount (`.:/workspace`) | Writes restricted to the workspace |
+| Single bind mount (`./workspace:/workspace`) | Writes restricted to the working folder — the sandbox repo does not enter the container |
 | Writable rootfs | The container can be modified at runtime (ephemeral) |
 | Resource limits | `pids_limit=4096`, `mem_limit=8g` and `cpus=4` — caps (not reservations), tunable via `SANDBOX_PIDS_LIMIT`, `SANDBOX_MEM_LIMIT` and `SANDBOX_CPUS` |
 
@@ -1354,9 +1468,10 @@ security research.
   to OpenCode and keep the bind mount restricted to a working folder.
 - **Do not commit secrets.** The `.gitignore` excludes `.env`, keys and
   `auth.json`, but check `git status` before `git push`.
-- **`auth.json` holds access tokens.** Today it lives in the container layer
-  and dies with it; if you mount volumes, treat them as credentials:
-  run `docker compose down -v` when you no longer need them.
+- **`auth.json` holds access tokens** (it only exists if you use the hosted
+  `opencode.ai` provider). Today it lives in the container layer and dies with
+  it; if you mount volumes, treat them as credentials: run
+  `docker compose down -v` when you no longer need them.
 - **The bundled `opencode-pentester` has its own terms** (see its
   [DISCLAIMER.md](https://github.com/humaidhahm/opencode-pentester/blob/main/DISCLAIMER.md)):
   it refuses out-of-scope targets, but the final responsibility is yours.
@@ -1364,7 +1479,7 @@ security research.
 ## Network
 
 The container uses Docker's default `bridge` network, with **internet egress**
-(required for the OpenCode login and to reach the targets). See the isolation
+(required to reach the model provider API and the targets). See the isolation
 options above.
 
 ## Updating
@@ -1433,9 +1548,10 @@ docker compose run --rm sandbox bash -lc 'stty rows 50 cols 200; exec bash'
 <details>
 <summary><b>"opencode: command not found" or "herdr: command not found"</b></summary>
 
-The image `PATH` already includes `~/.opencode/bin` and `~/.local/bin`. If the
-shell did not inherit the environment (e.g. a non-login `sh`), export it
-manually:
+The image `PATH` already includes `~/.opencode/bin` and `~/.local/bin`, and
+`~/.profile` keeps it that way in login shells too (`bash -lc` — `/etc/profile`
+rebuilds the PATH and would drop the image `ENV` one). If the binary still is
+not found (e.g. a non-login `sh`), export it manually:
 
 ```bash
 export PATH="$HOME/.opencode/bin:$HOME/.local/bin:$PATH"
@@ -1492,9 +1608,15 @@ image (see [Where opencode-pentester lives](#where-opencode-pentester-lives)).
 <details>
 <summary><b>"permission denied" when writing to the workspace</b></summary>
 
-The container runs as `kaliuser` (uid `1000`), so files created on the host
-are owned by that uid. Fix the host folder permissions
-(`sudo chown -R $(id -u) .`).
+The container runs as `kaliuser` (uid `1000`) and the `./workspace` folder is
+mounted into it. If Docker created it on its own, it ends up owned by `root` —
+fix it once on the host:
+
+```bash
+sudo chown -R 1000:1000 workspace
+```
+
+For your local user instead of the container uid: `sudo chown -R $(id -u) workspace`.
 </details>
 
 <details>
@@ -1563,6 +1685,7 @@ docker compose build --no-cache
 ├── .github/workflows/build.yml # CI: build + smoke test + security posture checks
 ├── .dockerignore               # slim build context
 ├── .gitignore                  # secrets and artifacts
+├── workspace/                  # working folder (git-ignored) — the pentest target
 ├── LICENSE                     # MIT
 └── README.md
 ```
@@ -1571,7 +1694,7 @@ And inside the container:
 
 ```
 /workspace
-├── (bind mount) .              # your project
+├── (bind mount) ./workspace    # dedicated folder: the pentest target
 └── opencode-pentester -> /opt/opencode-pentester   # link created at startup
 
 /opt
@@ -1582,7 +1705,7 @@ And inside the container:
 ├── .local/bin/herdr            # Herdr binary
 ├── .config/opencode/           # OpenCode config + Herdr plugin
 ├── .config/herdr/config.toml   # Herdr config
-├── .local/share/opencode/      # auth.json, database, sessions and logs
+├── .local/share/opencode/      # auth.json (if you logged in), database, sessions and logs
 └── .herdr/                     # worktrees, session and Herdr state
 ```
 
