@@ -36,7 +36,7 @@ OpenCode para um alvo, ele ataca, e o estrago fica dentro do container.
   - [Início rápido](#início-rápido)
   - [O que já vem pronto na imagem](#o-que-já-vem-pronto-na-imagem)
   - [Uso](#uso)
-  - [Atalhos do Herdr](#3-atalhos-do-herdr)
+  - [Atalhos do Herdr](#2-atalhos-do-herdr)
   - [Instalando ferramentas de pentest](#instalando-ferramentas-de-pentest)
   - [🩸 Red team: toolkit e fluxos ofensivos](#-red-team-toolkit-e-fluxos-ofensivos)
   - [Volumes e persistência](#volumes-e-persistência)
@@ -51,7 +51,7 @@ OpenCode para um alvo, ele ataca, e o estrago fica dentro do container.
   - [Quick start](#quick-start)
   - [What ships in the image](#what-ships-in-the-image)
   - [Usage](#usage)
-  - [Herdr shortcuts](#3-herdr-shortcuts)
+  - [Herdr shortcuts](#2-herdr-shortcuts)
   - [Installing pentest tooling](#installing-pentest-tooling)
   - [🩸 Red team: toolkit and offensive playbooks](#-red-team-toolkit-and-offensive-playbooks)
   - [Volumes and persistence](#volumes-and-persistence)
@@ -102,8 +102,7 @@ herdr      # abre o painel de workspaces/panes
 ```
 
 > Antes do primeiro prompt, configure um provedor de modelo (API key ou modelo
-> local) — **sem login**. Veja
-> [Modelo e provedor](#1-modelo-e-provedor-sem-login).
+> local).
 
 Sai com `Ctrl+D` (ou `exit`).
 
@@ -258,53 +257,7 @@ OpenCode depois de instalar.
 
 ## Uso
 
-### 1. Modelo e provedor (sem login)
-
-**O OpenCode não exige login.** Ele só precisa de um provedor de modelo — e
-você escolhe o que usar:
-
-- **API key** de um provedor (Anthropic, OpenAI, Google, OpenRouter…);
-- **modelo local** (Ollama, LM Studio) — sem chave e sem internet.
-
-A configuração global fica em `~/.config/opencode/opencode.json` — dentro do
-container, `/home/kaliuser/.config/opencode/opencode.json`. Para criar:
-
-```bash
-docker compose run --rm sandbox bash -lc '
-  mkdir -p ~/.config/opencode
-  cat > ~/.config/opencode/opencode.json <<JSON
-{
-  "\$schema": "https://opencode.ai/config.json",
-  "model": "anthropic/claude-sonnet-4-5",
-  "providers": {
-    "anthropic": { "settings": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
-  }
-}
-JSON
-'
-```
-
-O `{env:VARIAVEL}` é expandido na hora — o segredo não fica gravado no
-arquivo. Passe a chave para o container na execução:
-
-```bash
-docker compose run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" sandbox
-```
-
-Como a config vive na camada do container, ela é **perdida a cada recriação**
-— monte um volume se quiser preservá-la (veja
-[Volumes e persistência](#volumes-e-persistência)).
-
-Dentro da TUI, `/models` lista e troca o modelo; `/connect` adiciona
-provedores.
-
-> **Login é só para o `opencode.ai`.** O `opencode auth login` (ou o
-> `/connect` da TUI) grava um token em
-> `/home/kaliuser/.local/share/opencode/auth.json` — e, sem volume nomeado,
-> esse arquivo é **perdido** a cada `docker compose run --rm`. Veja
-> [Volumes e persistência](#volumes-e-persistência).
-
-### 2. Organizando o trabalho com o Herdr
+### 1. Organizando o trabalho com o Herdr
 
 O Herdr gerencia *workspaces* (projetos), *tabs* e *panes* (terminais).
 Dentro de um pane você roda o OpenCode; o Herdr detecta o agente e mostra o
@@ -324,7 +277,7 @@ Cenário típico:
 5. `Ctrl+B`, `Q` → desliga o cliente; **o servidor e os agentes continuam rodando**
 6. `herdr` de novo → reconecta na mesma sessão
 
-### 3. Atalhos do Herdr
+### 2. Atalhos do Herdr
 
 Prefixo padrão: `Ctrl+B` (pressione e solte, depois a tecla de ação).
 
@@ -357,7 +310,7 @@ Prefixo padrão: `Ctrl+B` (pressione e solte, depois a tecla de ação).
 > para redimensionar; botão direito abre o menu de contexto.
 > O prefixo é `Ctrl+B`: pressione e solte, depois a tecla de ação.
 
-### 4. Automação pela API do Herdr
+### 3. Automação pela API do Herdr
 
 O Herdr expõe uma API JSON pelo socket local:
 
@@ -372,7 +325,7 @@ herdr agent wait <alvo> --until idle --timeout 120000
 herdr agent prompt <alvo> "enumere os endpoints" --wait
 ```
 
-### 5. Rodando uma auditoria com o `opencode-pentester`
+### 4. Rodando uma auditoria com o `opencode-pentester`
 
 Com o framework em `/opt/opencode-pentester` (também acessível como
 `/workspace/opencode-pentester`, veja
@@ -480,7 +433,7 @@ teste de ponta a ponta — do reconhecimento ao relatório:
 
 > ⚠️ **Nada disso vem pré-instalado na imagem.** As ferramentas entram em
 > runtime pelo `install.sh` do framework (veja
-> [Rodando uma auditoria](#5-rodando-uma-auditoria-com-o-opencode-pentester))
+> [Rodando uma auditoria](#4-rodando-uma-auditoria-com-o-opencode-pentester))
 > e somem quando o container é recriado — grave-as na imagem se quiser
 > persistir.
 
@@ -980,9 +933,7 @@ opencode   # start the AI agent in /workspace
 herdr      # open the workspace/pane dashboard
 ```
 
-> Before the first prompt, set up a model provider (API key or local model) —
-> **no login needed**. See
-> [Model and provider](#1-model-and-provider-no-login).
+> Before the first prompt, set up a model provider (API key or local model).
 
 Exit with `Ctrl+D` (or `exit`).
 
@@ -1137,53 +1088,7 @@ OpenCode afterwards.
 
 ## Usage
 
-### 1. Model and provider (no login)
-
-**OpenCode does not require a login.** It only needs a model provider — and
-you pick the one you want:
-
-- an **API key** from a provider (Anthropic, OpenAI, Google, OpenRouter…);
-- a **local model** (Ollama, LM Studio) — no key and no internet.
-
-The global config lives in `~/.config/opencode/opencode.json` — inside the
-container, `/home/kaliuser/.config/opencode/opencode.json`. To create it:
-
-```bash
-docker compose run --rm sandbox bash -lc '
-  mkdir -p ~/.config/opencode
-  cat > ~/.config/opencode/opencode.json <<JSON
-{
-  "\$schema": "https://opencode.ai/config.json",
-  "model": "anthropic/claude-sonnet-4-5",
-  "providers": {
-    "anthropic": { "settings": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
-  }
-}
-JSON
-'
-```
-
-`{env:VARIABLE}` is expanded at runtime — the secret is never written to the
-file. Pass the key to the container on the way in:
-
-```bash
-docker compose run --rm -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" sandbox
-```
-
-Since the config lives in the container layer, it is **lost on every
-recreation** — mount a volume if you want to keep it (see
-[Volumes and persistence](#volumes-and-persistence)).
-
-Inside the TUI, `/models` lists and switches models; `/connect` adds
-providers.
-
-> **Login is only for `opencode.ai`.** `opencode auth login` (or `/connect`
-> in the TUI) stores a token in
-> `/home/kaliuser/.local/share/opencode/auth.json` — and without a named
-> volume that file is **lost** on every `docker compose run --rm`. See
-> [Volumes and persistence](#volumes-and-persistence).
-
-### 2. Driving the work with Herdr
+### 1. Driving the work with Herdr
 
 Herdr manages *workspaces* (projects), *tabs* and *panes* (terminals).
 Run OpenCode inside a pane; Herdr detects the agent and shows its state
@@ -1203,7 +1108,7 @@ Typical flow:
 5. `Ctrl+B`, `Q` → detach the client; **the server and agents keep running**
 6. Run `herdr` again → reattach to the same session
 
-### 3. Herdr shortcuts
+### 2. Herdr shortcuts
 
 Default prefix: `Ctrl+B` (press and release, then the action key).
 
@@ -1236,7 +1141,7 @@ Default prefix: `Ctrl+B` (press and release, then the action key).
 > right-click for the context menu.
 > The prefix is `Ctrl+B`: press and release, then the action key.
 
-### 4. Scripting the agents
+### 3. Scripting the agents
 
 Herdr exposes a JSON API over a local socket:
 
@@ -1251,7 +1156,7 @@ herdr agent wait <target> --until idle --timeout 120000
 herdr agent prompt <target> "enumerate the endpoints" --wait
 ```
 
-### 5. Running an audit with `opencode-pentester`
+### 4. Running an audit with `opencode-pentester`
 
 With the framework in `/opt/opencode-pentester` (also reachable as
 `/workspace/opencode-pentester`, see
@@ -1359,7 +1264,7 @@ from reconnaissance to the report:
 
 > ⚠️ **None of it ships pre-installed.** The tools land at runtime through the
 > framework's `install.sh` (see
-> [Running an audit](#5-running-an-audit-with-opencode-pentester)) and are gone
+> [Running an audit](#4-running-an-audit-with-opencode-pentester)) and are gone
 > when the container is recreated — bake them into the image to keep them.
 
 ### How to run an engagement
